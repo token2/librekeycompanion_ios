@@ -23,11 +23,13 @@ APDU* binding (no CTAPHID). Fingerprint enrollment — which the original notes
 requires USB even on Android — is out not available.
 
 ### To run on a device
-1. A **paid Apple Developer account** (NFC entitlement is not available to free accounts).
+1. A **Apple Developer account** (NFC entitlements required).
 2. Apple must grant the **Near Field Communication Tag Reading** capability on the App ID.
 3. `Info.plist` provides `NFCReaderUsageDescription`; the entitlements file lists
    every AID under `...iso7816.select-identifiers`. Keep that list in sync with
    `NFCTransport.AID`.
+
+Or simply install it from the App Store.
 
 NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 (iPhone 7 or newer).
