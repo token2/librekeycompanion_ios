@@ -1,0 +1,429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		53093FC94B5912D725365533 /* KeySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7485324F415B0235CABBFFA7 /* KeySession.swift */; };
+		0B74FB75B368AD21D21B8EB4 /* LibreKeyCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31B7D4FA9604D4CA8CDD5565 /* LibreKeyCompanionApp.swift */; };
+		40068E37BDAF3611FE32834E /* Cbor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01CC1A4E2B1D5F0722DA8793 /* Cbor.swift */; };
+		1F022D09BA3C06E55DD577E3 /* Ctap2Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = B235DBD1C2131AA3AF182B22 /* Ctap2Client.swift */; };
+		4314F894071EF8EBC23DB723 /* PinUvAuthProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F50C764DF96A8A0F008508 /* PinUvAuthProtocol.swift */; };
+		91E4413B140357940DE39EAC /* FIDOApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC962012B1BAE60DE70380C8 /* FIDOApplet.swift */; };
+		FB0DDD9BDC112F14CB10DAF2 /* MDSRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C33A3D1DCDD1F00E056B59A /* MDSRepository.swift */; };
+		062902D541F44CCD85ADB9A6 /* OATHCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5589B51A372BC20C68118192 /* OATHCore.swift */; };
+		203736084B72D278A2A42FEA /* OTPAuthURI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */; };
+		E965EDB3FC57209C9C5CB80D /* TLV.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6548EC50A6D70B24E8F109B /* TLV.swift */; };
+		E30D805058DB85D0FEC78094 /* YKOATHApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */; };
+		8A67EB6FAE9D1278EDDC477A /* OpenPGPApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B5957795A064B901748639 /* OpenPGPApplet.swift */; };
+		61A95D4733938C6BB63506B9 /* PIVApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A021DD2474763850FFB64E /* PIVApplet.swift */; };
+		0B22622B82531219E5F3ECC8 /* Token2Codec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679EEEDBD99EF5E950062146 /* Token2Codec.swift */; };
+		2535F47EEEFE9E95E7B55A55 /* Token2Crypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459653F1B2CC0BC49534E715 /* Token2Crypto.swift */; };
+		13FD17CF23BB1F32E6DFC008 /* Token2OTPApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB0D0F2BCA18E0E27E99DBF /* Token2OTPApplet.swift */; };
+		6B95645919B632BBFD3D3F00 /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8311C5B021934100D46740ED /* APDU.swift */; };
+		7BC1378F859AD9CFA4590FE7 /* CCIDTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E051A96D09E6DB2F7451D351 /* CCIDTransport.swift */; };
+		D50744172022DB4DFB8D473C /* KeyTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0CA5899823736B96306523C /* KeyTransport.swift */; };
+		D0DBDDE017062D7854EF8B81 /* NFCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A2DE626D7172E0CF133815 /* NFCTransport.swift */; };
+		ABA9C45F9E900A8B2C62E1B2 /* USBMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B03498A15CF5C01FBF7D333 /* USBMonitor.swift */; };
+		699463AC76007E151E6837FA /* FIDOView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED33C876D73562F93671D68C /* FIDOView.swift */; };
+		98369194BE968DEFF90C0288 /* PasskeyManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C4825F2088C0D84D0D90C6F /* PasskeyManagerView.swift */; };
+		E8B0DF8A485E8770B94C55C9 /* InfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23A90F0D72A561E03E0E23F /* InfoView.swift */; };
+		F39CA3551C2AA894E5A7F735 /* AddEntryForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0B4F9E0A4CE598E7AF5C39 /* AddEntryForm.swift */; };
+		75AFE7A6E653F1979123F38D /* OTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 095C82A21D59D15CFFCC4921 /* OTPView.swift */; };
+		1550C4F223171F353E02BCD4 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78095AFB6336E9B7B63FD2C /* QRScannerView.swift */; };
+		BCA477A0FA40940581F6640B /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A83BC1B877BC8431BF563559 /* RootTabView.swift */; };
+		DFBD8E09801FD0DC30D73BC7 /* DeviceHeaderCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */; };
+		F0BEE3666BC245CD23A7E3E0 /* TouchPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD8B48AD5E416B49EFAFB70 /* TouchPromptDialog.swift */; };
+		1A461D27F7E4C97FE23574A4 /* TransportPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433525195DE6EC1262BD2542 /* TransportPicker.swift */; };
+		C8FA8B458E579CD8C40B3D40 /* CborTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7E93A9B284C032203A8C53 /* CborTests.swift */; };
+		97721E954F5CE934B9E078D2 /* OATHCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */; };
+		E51D4D40DE6AEE07EB55E23E /* Token2CodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */; };
+		F986A86B1E46502ED3E7C528 /* YKOATHFramingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */; };
+		8D15AE80EEDA744B13F1DF33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB0F1317A694829D3E959385 /* Assets.xcassets */; };
+		A23716F2421667FB7271F5C7 /* mds_bundled.json in Resources */ = {isa = PBXBuildFile; fileRef = DD1346A38CA2F77AD8662D56 /* mds_bundled.json */; };
+		A514220A95FCC53B00A06295 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4FDB408A576C5A0E4B1DBCA0 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BE195B3D9698233CD82E9F8B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E3435DDA2687639586BF0B70;
+			remoteInfo = LibreKeyCompanion;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		7485324F415B0235CABBFFA7 /* KeySession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeySession.swift"; sourceTree = "<group>"; };
+		31B7D4FA9604D4CA8CDD5565 /* LibreKeyCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibreKeyCompanionApp.swift"; sourceTree = "<group>"; };
+		01CC1A4E2B1D5F0722DA8793 /* Cbor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Cbor.swift"; sourceTree = "<group>"; };
+		B235DBD1C2131AA3AF182B22 /* Ctap2Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Ctap2Client.swift"; sourceTree = "<group>"; };
+		01F50C764DF96A8A0F008508 /* PinUvAuthProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PinUvAuthProtocol.swift"; sourceTree = "<group>"; };
+		FC962012B1BAE60DE70380C8 /* FIDOApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FIDOApplet.swift"; sourceTree = "<group>"; };
+		9C33A3D1DCDD1F00E056B59A /* MDSRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MDSRepository.swift"; sourceTree = "<group>"; };
+		5589B51A372BC20C68118192 /* OATHCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHCore.swift"; sourceTree = "<group>"; };
+		0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OTPAuthURI.swift"; sourceTree = "<group>"; };
+		E6548EC50A6D70B24E8F109B /* TLV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TLV.swift"; sourceTree = "<group>"; };
+		C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "YKOATHApplet.swift"; sourceTree = "<group>"; };
+		69B5957795A064B901748639 /* OpenPGPApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpenPGPApplet.swift"; sourceTree = "<group>"; };
+		66A021DD2474763850FFB64E /* PIVApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PIVApplet.swift"; sourceTree = "<group>"; };
+		679EEEDBD99EF5E950062146 /* Token2Codec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2Codec.swift"; sourceTree = "<group>"; };
+		459653F1B2CC0BC49534E715 /* Token2Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2Crypto.swift"; sourceTree = "<group>"; };
+		4CB0D0F2BCA18E0E27E99DBF /* Token2OTPApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2OTPApplet.swift"; sourceTree = "<group>"; };
+		8311C5B021934100D46740ED /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APDU.swift"; sourceTree = "<group>"; };
+		E051A96D09E6DB2F7451D351 /* CCIDTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CCIDTransport.swift"; sourceTree = "<group>"; };
+		A0CA5899823736B96306523C /* KeyTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyTransport.swift"; sourceTree = "<group>"; };
+		E8A2DE626D7172E0CF133815 /* NFCTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NFCTransport.swift"; sourceTree = "<group>"; };
+		3B03498A15CF5C01FBF7D333 /* USBMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "USBMonitor.swift"; sourceTree = "<group>"; };
+		ED33C876D73562F93671D68C /* FIDOView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FIDOView.swift"; sourceTree = "<group>"; };
+		7C4825F2088C0D84D0D90C6F /* PasskeyManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PasskeyManagerView.swift"; sourceTree = "<group>"; };
+		A23A90F0D72A561E03E0E23F /* InfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InfoView.swift"; sourceTree = "<group>"; };
+		EE0B4F9E0A4CE598E7AF5C39 /* AddEntryForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddEntryForm.swift"; sourceTree = "<group>"; };
+		095C82A21D59D15CFFCC4921 /* OTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OTPView.swift"; sourceTree = "<group>"; };
+		D78095AFB6336E9B7B63FD2C /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QRScannerView.swift"; sourceTree = "<group>"; };
+		A83BC1B877BC8431BF563559 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RootTabView.swift"; sourceTree = "<group>"; };
+		03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeviceHeaderCard.swift"; sourceTree = "<group>"; };
+		BDD8B48AD5E416B49EFAFB70 /* TouchPromptDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TouchPromptDialog.swift"; sourceTree = "<group>"; };
+		433525195DE6EC1262BD2542 /* TransportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TransportPicker.swift"; sourceTree = "<group>"; };
+		BB7E93A9B284C032203A8C53 /* CborTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CborTests.swift"; sourceTree = "<group>"; };
+		148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHCoreTests.swift"; sourceTree = "<group>"; };
+		2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2CodecTests.swift"; sourceTree = "<group>"; };
+		2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "YKOATHFramingTests.swift"; sourceTree = "<group>"; };
+		84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibreKeyCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5A2BEBE86215B3F6D160426 /* LibreKeyCompanionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LibreKeyCompanionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB0F1317A694829D3E959385 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Assets.xcassets"; sourceTree = "<group>"; };
+		DD1346A38CA2F77AD8662D56 /* mds_bundled.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mds_bundled.json"; sourceTree = "<group>"; };
+		4FDB408A576C5A0E4B1DBCA0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5E418B2B26B840EA9C4F2A25 /* Frameworks */ = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D752216607A6BC8D9E893264 /* Frameworks */ = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3BD34C48B5C5280A6979C3A1 /* Resources */ = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = ( 8D15AE80EEDA744B13F1DF33 /* Assets.xcassets in Resources */, A23716F2421667FB7271F5C7 /* mds_bundled.json in Resources */, A514220A95FCC53B00A06295 /* PrivacyInfo.xcprivacy in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXGroup section */
+		39D4EB57527977E878858D0B /* LibreKeyCompanion */ = {
+			isa = PBXGroup;
+			children = (
+				4F3654517CC007B8ECF7D96D /* App */,
+				9EFCDA7C461AFB1D9F46BB0F /* FIDO */,
+				A725218CD067D64CDF8B2D07 /* MDS */,
+				1BB2970BCA8F0CFF3B093CC3 /* OATH */,
+				FE65C600ECD651499FDF7D9D /* OpenPGP */,
+				F53E0BD7E021DC9E85D1D964 /* PIV */,
+				5AE3AE645A64EDE7866BD9E8 /* Resources */,
+				C345536A8B698AEE3870A24B /* Token2 */,
+				96C575FD8A39BB2351D18BE0 /* Transport */,
+				E2BA5409440E36D77943D8F3 /* UI */,
+			);
+			path = "LibreKeyCompanion";
+			sourceTree = "<group>";
+		};
+		4F3654517CC007B8ECF7D96D /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7485324F415B0235CABBFFA7 /* KeySession.swift */,
+				31B7D4FA9604D4CA8CDD5565 /* LibreKeyCompanionApp.swift */,
+			);
+			path = "App";
+			sourceTree = "<group>";
+		};
+		9EFCDA7C461AFB1D9F46BB0F /* FIDO */ = {
+			isa = PBXGroup;
+			children = (
+				75933A0E761B4FC62F63389A /* CTAP */,
+				FC962012B1BAE60DE70380C8 /* FIDOApplet.swift */,
+			);
+			path = "FIDO";
+			sourceTree = "<group>";
+		};
+		75933A0E761B4FC62F63389A /* CTAP */ = {
+			isa = PBXGroup;
+			children = (
+				01CC1A4E2B1D5F0722DA8793 /* Cbor.swift */,
+				B235DBD1C2131AA3AF182B22 /* Ctap2Client.swift */,
+				01F50C764DF96A8A0F008508 /* PinUvAuthProtocol.swift */,
+			);
+			path = "CTAP";
+			sourceTree = "<group>";
+		};
+		A725218CD067D64CDF8B2D07 /* MDS */ = {
+			isa = PBXGroup;
+			children = (
+				9C33A3D1DCDD1F00E056B59A /* MDSRepository.swift */,
+			);
+			path = "MDS";
+			sourceTree = "<group>";
+		};
+		1BB2970BCA8F0CFF3B093CC3 /* OATH */ = {
+			isa = PBXGroup;
+			children = (
+				5589B51A372BC20C68118192 /* OATHCore.swift */,
+				0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */,
+				E6548EC50A6D70B24E8F109B /* TLV.swift */,
+				C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */,
+			);
+			path = "OATH";
+			sourceTree = "<group>";
+		};
+		FE65C600ECD651499FDF7D9D /* OpenPGP */ = {
+			isa = PBXGroup;
+			children = (
+				69B5957795A064B901748639 /* OpenPGPApplet.swift */,
+			);
+			path = "OpenPGP";
+			sourceTree = "<group>";
+		};
+		F53E0BD7E021DC9E85D1D964 /* PIV */ = {
+			isa = PBXGroup;
+			children = (
+				66A021DD2474763850FFB64E /* PIVApplet.swift */,
+			);
+			path = "PIV";
+			sourceTree = "<group>";
+		};
+		5AE3AE645A64EDE7866BD9E8 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EB0F1317A694829D3E959385 /* Assets.xcassets */,
+				DD1346A38CA2F77AD8662D56 /* mds_bundled.json */,
+				4FDB408A576C5A0E4B1DBCA0 /* PrivacyInfo.xcprivacy */,
+			);
+			path = "Resources";
+			sourceTree = "<group>";
+		};
+		C345536A8B698AEE3870A24B /* Token2 */ = {
+			isa = PBXGroup;
+			children = (
+				679EEEDBD99EF5E950062146 /* Token2Codec.swift */,
+				459653F1B2CC0BC49534E715 /* Token2Crypto.swift */,
+				4CB0D0F2BCA18E0E27E99DBF /* Token2OTPApplet.swift */,
+			);
+			path = "Token2";
+			sourceTree = "<group>";
+		};
+		96C575FD8A39BB2351D18BE0 /* Transport */ = {
+			isa = PBXGroup;
+			children = (
+				8311C5B021934100D46740ED /* APDU.swift */,
+				E051A96D09E6DB2F7451D351 /* CCIDTransport.swift */,
+				A0CA5899823736B96306523C /* KeyTransport.swift */,
+				E8A2DE626D7172E0CF133815 /* NFCTransport.swift */,
+				3B03498A15CF5C01FBF7D333 /* USBMonitor.swift */,
+			);
+			path = "Transport";
+			sourceTree = "<group>";
+		};
+		E2BA5409440E36D77943D8F3 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				68687A47DC454DC6BBD54821 /* FIDO */,
+				6477A6039CC5A144904B902D /* Info */,
+				9ABD3927A9FF06EF50940F53 /* OTP */,
+				8DB9B3D53F7927D0362AE87C /* Shared */,
+				A83BC1B877BC8431BF563559 /* RootTabView.swift */,
+			);
+			path = "UI";
+			sourceTree = "<group>";
+		};
+		68687A47DC454DC6BBD54821 /* FIDO */ = {
+			isa = PBXGroup;
+			children = (
+				ED33C876D73562F93671D68C /* FIDOView.swift */,
+				7C4825F2088C0D84D0D90C6F /* PasskeyManagerView.swift */,
+			);
+			path = "FIDO";
+			sourceTree = "<group>";
+		};
+		6477A6039CC5A144904B902D /* Info */ = {
+			isa = PBXGroup;
+			children = (
+				A23A90F0D72A561E03E0E23F /* InfoView.swift */,
+			);
+			path = "Info";
+			sourceTree = "<group>";
+		};
+		9ABD3927A9FF06EF50940F53 /* OTP */ = {
+			isa = PBXGroup;
+			children = (
+				EE0B4F9E0A4CE598E7AF5C39 /* AddEntryForm.swift */,
+				095C82A21D59D15CFFCC4921 /* OTPView.swift */,
+				D78095AFB6336E9B7B63FD2C /* QRScannerView.swift */,
+			);
+			path = "OTP";
+			sourceTree = "<group>";
+		};
+		8DB9B3D53F7927D0362AE87C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */,
+				BDD8B48AD5E416B49EFAFB70 /* TouchPromptDialog.swift */,
+				433525195DE6EC1262BD2542 /* TransportPicker.swift */,
+			);
+			path = "Shared";
+			sourceTree = "<group>";
+		};
+		46DAC34245DE37B27149E64D /* LibreKeyCompanionTests */ = {
+			isa = PBXGroup;
+			children = (
+				BB7E93A9B284C032203A8C53 /* CborTests.swift */,
+				148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */,
+				2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */,
+				2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */,
+			);
+			path = "LibreKeyCompanionTests";
+			sourceTree = "<group>";
+		};
+		547D009064F7C3F13BEF3460 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */,
+				B5A2BEBE86215B3F6D160426 /* LibreKeyCompanionTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B9340614599AB78F485950C7 = {
+			isa = PBXGroup;
+			children = (
+				39D4EB57527977E878858D0B /* LibreKeyCompanion */,
+				46DAC34245DE37B27149E64D /* LibreKeyCompanionTests */,
+				547D009064F7C3F13BEF3460 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E3435DDA2687639586BF0B70 /* LibreKeyCompanion */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D4CB0E4AA83B40D38FF8F334;
+			buildPhases = ( 67281B94473E6F647EB8E42B /* Sources */, 5E418B2B26B840EA9C4F2A25 /* Frameworks */, 3BD34C48B5C5280A6979C3A1 /* Resources */, );
+			buildRules = ();
+			dependencies = ();
+			name = LibreKeyCompanion;
+			productName = LibreKeyCompanion;
+			productReference = 84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5DED2D04DB49D4091162647E /* LibreKeyCompanionTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB5E17750F6B22E4B68D740A;
+			buildPhases = ( 786893EE874C58D0F06A97ED /* Sources */, D752216607A6BC8D9E893264 /* Frameworks */, );
+			buildRules = ();
+			dependencies = ( BE5EB07F8419F29F5E649C20 /* PBXTargetDependency */, );
+			name = LibreKeyCompanionTests;
+			productName = LibreKeyCompanionTests;
+			productReference = B5A2BEBE86215B3F6D160426 /* LibreKeyCompanionTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46F86FAA6BBF9AC94A7E4595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					E3435DDA2687639586BF0B70 = { CreatedOnToolsVersion = 15.4; };
+					5DED2D04DB49D4091162647E = { CreatedOnToolsVersion = 15.4; TestTargetID = E3435DDA2687639586BF0B70; };
+				};
+			};
+			buildConfigurationList = EF4A0DC8DF3FC10C77D9C2D0;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = ( en, Base );
+			mainGroup = B9340614599AB78F485950C7;
+			productRefGroup = 547D009064F7C3F13BEF3460 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = ( E3435DDA2687639586BF0B70 /* LibreKeyCompanion */, 5DED2D04DB49D4091162647E /* LibreKeyCompanionTests */, );
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		67281B94473E6F647EB8E42B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53093FC94B5912D725365533 /* KeySession.swift in Sources */,
+				0B74FB75B368AD21D21B8EB4 /* LibreKeyCompanionApp.swift in Sources */,
+				40068E37BDAF3611FE32834E /* Cbor.swift in Sources */,
+				1F022D09BA3C06E55DD577E3 /* Ctap2Client.swift in Sources */,
+				4314F894071EF8EBC23DB723 /* PinUvAuthProtocol.swift in Sources */,
+				91E4413B140357940DE39EAC /* FIDOApplet.swift in Sources */,
+				FB0DDD9BDC112F14CB10DAF2 /* MDSRepository.swift in Sources */,
+				062902D541F44CCD85ADB9A6 /* OATHCore.swift in Sources */,
+				203736084B72D278A2A42FEA /* OTPAuthURI.swift in Sources */,
+				E965EDB3FC57209C9C5CB80D /* TLV.swift in Sources */,
+				E30D805058DB85D0FEC78094 /* YKOATHApplet.swift in Sources */,
+				8A67EB6FAE9D1278EDDC477A /* OpenPGPApplet.swift in Sources */,
+				61A95D4733938C6BB63506B9 /* PIVApplet.swift in Sources */,
+				0B22622B82531219E5F3ECC8 /* Token2Codec.swift in Sources */,
+				2535F47EEEFE9E95E7B55A55 /* Token2Crypto.swift in Sources */,
+				13FD17CF23BB1F32E6DFC008 /* Token2OTPApplet.swift in Sources */,
+				6B95645919B632BBFD3D3F00 /* APDU.swift in Sources */,
+				7BC1378F859AD9CFA4590FE7 /* CCIDTransport.swift in Sources */,
+				D50744172022DB4DFB8D473C /* KeyTransport.swift in Sources */,
+				D0DBDDE017062D7854EF8B81 /* NFCTransport.swift in Sources */,
+				ABA9C45F9E900A8B2C62E1B2 /* USBMonitor.swift in Sources */,
+				699463AC76007E151E6837FA /* FIDOView.swift in Sources */,
+				98369194BE968DEFF90C0288 /* PasskeyManagerView.swift in Sources */,
+				E8B0DF8A485E8770B94C55C9 /* InfoView.swift in Sources */,
+				F39CA3551C2AA894E5A7F735 /* AddEntryForm.swift in Sources */,
+				75AFE7A6E653F1979123F38D /* OTPView.swift in Sources */,
+				1550C4F223171F353E02BCD4 /* QRScannerView.swift in Sources */,
+				BCA477A0FA40940581F6640B /* RootTabView.swift in Sources */,
+				DFBD8E09801FD0DC30D73BC7 /* DeviceHeaderCard.swift in Sources */,
+				F0BEE3666BC245CD23A7E3E0 /* TouchPromptDialog.swift in Sources */,
+				1A461D27F7E4C97FE23574A4 /* TransportPicker.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		786893EE874C58D0F06A97ED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C8FA8B458E579CD8C40B3D40 /* CborTests.swift in Sources */,
+				97721E954F5CE934B9E078D2 /* OATHCoreTests.swift in Sources */,
+				E51D4D40DE6AEE07EB55E23E /* Token2CodecTests.swift in Sources */,
+				F986A86B1E46502ED3E7C528 /* YKOATHFramingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BE5EB07F8419F29F5E649C20 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E3435DDA2687639586BF0B70 /* LibreKeyCompanion */;
+			targetProxy = BE195B3D9698233CD82E9F8B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1A92D92A519B2F2C925A31E9 /* Debug */ = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0; }; name = Debug; };
+		D331BC7D8C2174A1A1060B57 /* Release */ = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0; VALIDATE_PRODUCT = YES; }; name = Release; };
+		5B5ADDD012FE7B3D0FFCA293 /* Debug */ = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_ENTITLEMENTS = "LibreKeyCompanion/Resources/LibreKeyCompanion.entitlements"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = "LibreKeyCompanion/Resources/Info.plist"; LD_RUNPATH_SEARCH_PATHS = ( "$(inherited)", "@executable_path/Frameworks" ); MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		D31319C0E5C8B146A0B98B8E /* Release */ = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_ENTITLEMENTS = "LibreKeyCompanion/Resources/LibreKeyCompanion.entitlements"; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = "LibreKeyCompanion/Resources/Info.plist"; LD_RUNPATH_SEARCH_PATHS = ( "$(inherited)", "@executable_path/Frameworks" ); MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		2ABA62A1E3D88C23971BB532 /* Debug */ = { isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LibreKeyCompanion.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LibreKeyCompanion"; }; name = Debug; };
+		B8858C92164760EFD3B2DFFA /* Release */ = { isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LibreKeyCompanion.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LibreKeyCompanion"; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		EF4A0DC8DF3FC10C77D9C2D0 = { isa = XCConfigurationList; buildConfigurations = ( 1A92D92A519B2F2C925A31E9 /* Debug */, D331BC7D8C2174A1A1060B57 /* Release */ ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		D4CB0E4AA83B40D38FF8F334 = { isa = XCConfigurationList; buildConfigurations = ( 5B5ADDD012FE7B3D0FFCA293 /* Debug */, D31319C0E5C8B146A0B98B8E /* Release */ ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		AB5E17750F6B22E4B68D740A = { isa = XCConfigurationList; buildConfigurations = ( 2ABA62A1E3D88C23971BB532 /* Debug */, B8858C92164760EFD3B2DFFA /* Release */ ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
+}

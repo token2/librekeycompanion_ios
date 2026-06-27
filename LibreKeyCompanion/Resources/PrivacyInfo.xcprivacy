@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Privacy manifest for Libre Key Companion.
+
+      The app collects NO data and contains NO tracking. It talks to a hardware
+      security key over NFC / USB-C and shows OTP codes and key status. The only
+      network request is fetching the public FIDO Alliance metadata blob, which
+      sends no user data.
+    -->
+
+    <!-- The app does not track users across apps/websites. -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- No tracking domains. -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- No data is collected from the user. -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <!--
+      Required-Reason API usage. The app reads a file's modification date once,
+      to show when the locally-cached FIDO metadata was last updated. The file
+      lives inside the app's own container.
+
+      Category: NSPrivacyAccessedAPICategoryFileTimestamp
+      Reason  : C617.1 — timestamps of files inside the app container.
+    -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+            </array>
+        </dict>
+        <dict>
+            <!--
+              UserDefaults: the app stores one local preference (the FIDO PIN
+              keyboard type) via @AppStorage. Reason CA92.1 — access info from
+              the same app, no data shared with other apps.
+            -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

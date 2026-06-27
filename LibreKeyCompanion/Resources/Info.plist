@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundleDisplayName</key>
+    <string>Libre Key Companion</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <!-- App Store category (Utilities). -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <!--
+      Encryption: the app uses only standard, exempt cryptography (AES, ECDH,
+      HKDF, SHA via Apple's CryptoKit/CommonCrypto) for talking to security keys.
+      No proprietary/non-standard encryption, so it qualifies for the export
+      exemption and needs no annual self-classification filing.
+    -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <!-- Required string shown when an NFC session starts. -->
+    <key>NFCReaderUsageDescription</key>
+    <string>Libre Key Companion reads your hardware security key over NFC to show OTP codes and key status.</string>
+    <!--
+      The list of AIDs the reader session will SELECT. Per Apple's property-list
+      documentation this belongs in Info.plist (the "ISO7816 application
+      identifiers for NFC Tag Reader Session" key), NOT in the entitlements file.
+      The entitlements file carries only the formats (=TAG) capability.
+    -->
+    <key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+    <array>
+        <string>A0000005272101</string>
+        <string>A0000006472F0001</string>
+        <string>D27600012401</string>
+        <string>A000000308</string>
+        <string>F00000014F747001</string>
+    </array>
+    <key>NSCameraUsageDescription</key>
+    <string>Libre Key Companion uses the camera to scan otpauth QR codes when adding a credential.</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+</dict>
+</plist>

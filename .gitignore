@@ -1,0 +1,6 @@
+﻿LibreKeyCompanion/publishing/
+.DS_Store
+xcuserdata/
+*.xcuserstate
+build/
+DerivedData/
