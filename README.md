@@ -40,8 +40,9 @@ requires USB even on Android — is out not available.
 
 
 Or simply install it from the App Store.
-> 
-> <a href="https://apps.apple.com/app/id6785083417"><img src="appstore.svg" width=150 alt="Get it on AppStore" ></a>
+
+
+<a href="https://apps.apple.com/app/id6785083417"><img src="appstore.svg" width=150 alt="Get it on AppStore" ></a>
 
 NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 (iPhone 7 or newer).
