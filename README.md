@@ -66,6 +66,24 @@ LibreKeyCompanion/
 LibreKeyCompanionTests/   Spec-vector tests (RFC 4226/6238, Base32, TLV, APDU)
 ```
 
+## Screenshots
+
+<img width="350" alt="screenshot 1" src="https://github.com/user-attachments/assets/a054f66f-a228-415a-b710-0b751ece5c12" />
+
+
+  <img width="350" alt="screenshot 2" src="https://github.com/user-attachments/assets/755f7df2-b521-4bfd-b3ce-63e38911a66c" />
+
+  
+  <img width="350" alt="screenshot 3" src="https://github.com/user-attachments/assets/1685d283-67ce-4d8e-bf9b-1473f5b0f086" />
+
+  
+  <img width="350" alt="screenshot 4" src="https://github.com/user-attachments/assets/0a3cf92f-ba7b-4ac3-8585-da79f27e0478" />
+
+  
+  <img width="350" alt="screenshot 5" src="https://github.com/user-attachments/assets/c43e88a2-89d9-4194-ab2c-165ec4b877b2" />
+
+<img width="350" alt="image" src="https://github.com/user-attachments/assets/48cbc6fa-12b4-47f4-809a-1f71cc8c6757" />
+
 ## Correctness
 
 Following the original's principle of verifying security-sensitive logic against
@@ -91,8 +109,7 @@ The app icon (`Assets.xcassets/AppIcon.appiconset/icon-1024.png`) and the in-app
 logo (`Assets.xcassets/Logo.imageset`) are rasterized from the original Token2
 `logo.svg`. The app icon is rendered full-bleed (squared corners, no alpha) so
 iOS applies its own corner mask; the in-app logo keeps the rounded-square form
-and transparency. The Google Play badge from the original repo is intentionally
-not included (it's a Google asset and irrelevant on iOS).
+and transparency.  
 
 ## License
 
