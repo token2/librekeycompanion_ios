@@ -1,10 +1,10 @@
-# Libre Key Companion — iOS
+# Libre Key Companion - iOS
 
 An iOS (SwiftUI) port of [token2/librekeycompanion](https://github.com/token2/librekeycompanion),
 a manufacturer-agnostic manager for hardware security keys.
 
 > **Scope:** This is the **NFC-reachable subset** of the original Android app.
-> See *Platform constraints* below for why a 1:1 port is not possible on iOS.
+> See *Platform constraints* below for why a 1:1 port is not possible on iOS (yet).
 
 ## Platform constraints (read this first)
 
