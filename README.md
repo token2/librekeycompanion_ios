@@ -18,9 +18,9 @@ for third-party apps:
 | USB-C (CCID smart-card) | ✅ | ❌ | iOS gives apps no arbitrary USB/CCID access |
 | USB-C (CTAPHID for FIDO2) | ✅ | ❌ | No third-party CTAPHID/USB-HID access on iOS |
 
-So **all USB functionality is dropped**, and FIDO2 is limited to the CTAP2 *NFC
+So **all USB functionality is on hold for now**, and FIDO2 is limited to the CTAP2 *NFC
 APDU* binding (no CTAPHID). Fingerprint enrollment — which the original notes
-requires USB even on Android — is out of scope here.
+requires USB even on Android — is out not available.
 
 ### To run on a device
 1. A **paid Apple Developer account** (NFC entitlement is not available to free accounts).
