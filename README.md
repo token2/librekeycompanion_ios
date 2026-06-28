@@ -128,6 +128,9 @@ logo (`Assets.xcassets/Logo.imageset`) are rasterized from the original Token2
 iOS applies its own corner mask; the in-app logo keeps the rounded-square form
 and transparency.  
 
+## TODO
+FIDO Reset
+
 ## License
 
 Inherits the original project's MIT license.
