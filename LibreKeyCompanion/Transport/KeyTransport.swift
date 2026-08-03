@@ -11,6 +11,11 @@ public enum KeyError: Error, LocalizedError {
     case userCancelled
     /// The key needs a physical button touch to complete this read.
     case buttonPressRequired
+    /// The OATH applet is password protected and no valid password is cached.
+    /// Carries the device id, which is the salt for deriving the access key.
+    case oathPasswordRequired(deviceId: Data)
+    /// A VALIDATE attempt was rejected by the key.
+    case oathPasswordIncorrect(deviceId: Data)
 
     public var errorDescription: String? {
         switch self {
@@ -30,6 +35,10 @@ public enum KeyError: Error, LocalizedError {
             return "Cancelled."
         case .buttonPressRequired:
             return "Touch the key's button while holding it to the phone to reveal this code."
+        case .oathPasswordRequired:
+            return "This key's OATH accounts are protected by a password."
+        case .oathPasswordIncorrect:
+            return "The key rejected that OATH password."
         }
     }
 }
