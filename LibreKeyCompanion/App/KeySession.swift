@@ -51,6 +51,8 @@ final class KeySession: ObservableObject {
                 self?.clearKeyData()
                 self?.infoScanned = false
                 self?.oathPresent = nil; self?.token2Present = nil; self?.fidoPresent = nil
+                self?.oathLocked = false
+                self?.forgetOATHPasswords()
                 self?.pivStatus = nil; self?.pgpStatus = nil
                 self?.pivAbsent = false; self?.pgpAbsent = false
             }
@@ -91,11 +93,93 @@ final class KeySession: ObservableObject {
     func forgetPin() { rememberedPin = nil }
     var hasRememberedPin: Bool { rememberedPin != nil }
 
+    // ---- OATH password (YKOATH VALIDATE) ----
+
+    /// An operation stopped because the OATH applet is locked. The UI presents a
+    /// password field; submitting it derives the access key and re-runs `retry`.
+    struct OATHPasswordRequest: Identifiable {
+        let id = UUID()
+        let deviceIdHex: String
+        /// True when a password was tried and the key rejected it.
+        let wrongPassword: Bool
+        let retry: @MainActor () async -> Void
+    }
+    @Published var oathPasswordRequest: OATHPasswordRequest?
+
+    /// Session-only derived access keys, by device id. Like `rememberedPin`,
+    /// held in memory so consecutive taps don't re-prompt, and NEVER persisted.
+    /// Storing the derived key rather than the password keeps the plaintext out
+    /// of memory once the derivation is done.
+    private var oathAccessKeys: [String: Data] = [:]
+    func forgetOATHPasswords() { oathAccessKeys.removeAll() }
+
+    /// Derive and cache the key for the pending request, then resume it.
+    func submitOATHPassword(_ password: String) {
+        guard let request = oathPasswordRequest else { return }
+        oathPasswordRequest = nil
+        do {
+            oathAccessKeys[request.deviceIdHex] = try OATHPassword.deriveAccessKey(
+                password: password,
+                deviceId: OATHPassword.data(fromHex: request.deviceIdHex))
+        } catch {
+            errorMessage = (error as? KeyError)?.errorDescription ?? error.localizedDescription
+            return
+        }
+        Task { await request.retry() }
+    }
+
+    func cancelOATHPassword() {
+        oathPasswordRequest = nil
+        statusMessage = "OATH is locked — password not entered."
+    }
+
+    /// Raise a password prompt if `error` is an OATH lock. Returns true when it
+    /// handled the error, so callers skip their normal error reporting.
+    private func requestOATHPassword(for error: Error,
+                                     retry: @escaping @MainActor () async -> Void) -> Bool {
+        guard let e = error as? KeyError else { return false }
+        switch e {
+        case .oathPasswordRequired(let deviceId):
+            oathPasswordRequest = OATHPasswordRequest(
+                deviceIdHex: OATHPassword.hex(deviceId), wrongPassword: false, retry: retry)
+            return true
+        case .oathPasswordIncorrect(let deviceId):
+            // A cached key the applet rejects must never be retried silently.
+            oathAccessKeys.removeValue(forKey: OATHPassword.hex(deviceId))
+            oathPasswordRequest = OATHPasswordRequest(
+                deviceIdHex: OATHPassword.hex(deviceId), wrongPassword: true, retry: retry)
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// SELECT the OATH applet and unlock it when a password is cached. Throws
+    /// `.oathPasswordRequired` / `.oathPasswordIncorrect` when it stays locked.
+    private func openOATH(transport: KeyTransport) async throws -> YKOATHApplet {
+        let applet = YKOATHApplet(transport: transport)
+        let info = try await applet.select()
+        guard info.isPasswordProtected else { return applet }
+        let deviceIdHex = OATHPassword.hex(info.deviceId)
+        guard let accessKey = oathAccessKeys[deviceIdHex] else {
+            throw KeyError.oathPasswordRequired(deviceId: info.deviceId)
+        }
+        do {
+            try await applet.validate(accessKey: accessKey)
+        } catch let e as KeyError {
+            if case .oathPasswordIncorrect = e { oathAccessKeys.removeValue(forKey: deviceIdHex) }
+            throw e
+        }
+        return applet
+    }
+
     // ---- Info-tab applet statuses (read in one tap) ----
     @Published var infoScanned = false
     @Published var infoBusy = false
     @Published var infoError: String?
     @Published var oathPresent: Bool?
+    /// OATH is present but password protected and not unlocked in this session.
+    @Published var oathLocked = false
     @Published var token2Present: Bool?
     @Published var fidoPresent: Bool?
     @Published var pivStatus: PIVApplet.PIVStatus?
@@ -107,7 +191,7 @@ final class KeySession: ObservableObject {
     func scanInfo() async {
         guard !infoBusy else { return }   // prevent concurrent reads on one session
         infoBusy = true; infoError = nil
-        oathPresent = nil; token2Present = nil; fidoPresent = nil
+        oathPresent = nil; token2Present = nil; fidoPresent = nil; oathLocked = false
         pivStatus = nil; pgpStatus = nil; pivAbsent = false; pgpAbsent = false
         // Reading a (potentially different) key invalidates any data shown on the
         // other tabs — clear OTP codes and FIDO2 info/passkeys so nothing stale
@@ -120,15 +204,24 @@ final class KeySession: ObservableObject {
 
             token2Present = await Token2OTPApplet(transport: transport).isPresent()
 
-            do { try await YKOATHApplet(transport: transport).select(); oathPresent = true }
-            catch { oathPresent = false }
+            // SELECT answers on a password-protected applet too, so record the
+            // lock separately instead of reporting the applet as missing when a
+            // later LIST comes back 6982.
+            do {
+                let info = try await YKOATHApplet(transport: transport).select()
+                oathPresent = true
+                oathLocked = info.isPasswordProtected
+                    && oathAccessKeys[OATHPassword.hex(info.deviceId)] == nil
+            } catch {
+                oathPresent = false
+            }
 
             // Read the actual OTP codes in this same session, so switching to the
             // OTP tab shows a populated list instead of prompting another scan.
             if token2Present == true {
                 detectedKind = .token2
                 try? await readTokens(from: Token2OTPApplet(transport: transport))
-            } else if oathPresent == true {
+            } else if oathPresent == true, !oathLocked {
                 detectedKind = .oath
                 try? await readOATH(transport: transport)
             }
@@ -210,6 +303,10 @@ final class KeySession: ObservableObject {
             }
         } catch let e as KeyError {
             if case .userCancelled = e { /* silent */ }
+            else if requestOATHPassword(for: e, retry: { [weak self] in
+                guard let self else { return }
+                await self.scanOATH()
+            }) {}
             else { errorMessage = e.errorDescription }
         } catch {
             errorMessage = error.localizedDescription
@@ -277,8 +374,7 @@ final class KeySession: ObservableObject {
 
     /// Read credentials from a YKOATH applet.
     private func readOATH(transport: KeyTransport) async throws {
-        let applet = YKOATHApplet(transport: transport)
-        try await applet.select()
+        let applet = try await openOATH(transport: transport)
         let creds = try await applet.list()
         var live: [LiveCode] = []
         for cred in creds {
@@ -315,13 +411,17 @@ final class KeySession: ObservableObject {
                 guard let uri = fields.buildOtpauthUri(), let parsed = OTPAuthURI(uri) else {
                     throw KeyError.parsing("Need an account and a valid Base32 secret.")
                 }
-                let applet = YKOATHApplet(transport: transport)
-                try await applet.select()
+                let applet = try await openOATH(transport: transport)
                 try await applet.put(parsed, requireTouch: fields.requireTouch)
                 statusMessage = "Added \(parsed.label)."
             }
         } catch let e as KeyError {
-            if case .userCancelled = e {} else { errorMessage = friendlyPutError(e) }
+            if case .userCancelled = e {}
+            else if requestOATHPassword(for: e, retry: { [weak self] in
+                guard let self else { return }
+                await self.addEntry(fields)
+            }) {}
+            else { errorMessage = friendlyPutError(e) }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -356,14 +456,18 @@ final class KeySession: ObservableObject {
                 try await token2.writeEntry(entry)
             } else {
                 detectedKind = .oath
-                let applet = YKOATHApplet(transport: transport)
-                try await applet.select()
+                let applet = try await openOATH(transport: transport)
                 try await applet.put(parsed, requireTouch: requireTouch)
             }
             statusMessage = "Added \(parsed.label)."
             transport.invalidate(message: "Added.")
         } catch let e as KeyError {
-            if case .userCancelled = e {} else { errorMessage = friendlyPutError(e) }
+            if case .userCancelled = e {}
+            else if requestOATHPassword(for: e, retry: { [weak self] in
+                guard let self else { return }
+                await self.addCredential(uri: uri, requireTouch: requireTouch)
+            }) {}
+            else { errorMessage = friendlyPutError(e) }
             transport.invalidate()
         } catch {
             errorMessage = error.localizedDescription
@@ -387,15 +491,19 @@ final class KeySession: ObservableObject {
                 try await token2.deleteEntry(app: app, acct: acct)
             } else {
                 detectedKind = .oath
-                let applet = YKOATHApplet(transport: transport)
-                try await applet.select()
+                let applet = try await openOATH(transport: transport)
                 let cred = OATHCredential(name: id, kind: .totp, algorithm: .sha1, digits: 6)
                 try await applet.delete(cred)
             }
             credentials.removeAll { $0.id == id }
             statusMessage = "Deleted \(id)."
         } catch let e as KeyError {
-            if case .userCancelled = e {} else { errorMessage = e.errorDescription }
+            if case .userCancelled = e {}
+            else if requestOATHPassword(for: e, retry: { [weak self] in
+                guard let self else { return }
+                await self.deleteCredential(id: id)
+            }) {}
+            else { errorMessage = e.errorDescription }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -415,7 +523,7 @@ final class KeySession: ObservableObject {
         if case .unexpectedStatus(let sw) = e {
             switch sw {
             case 0x6A84: return "The key is full — no space for another credential."
-            case 0x6982: return "This key requires a password (VALIDATE), which isn't supported yet."
+            case 0x6982: return "The key's OATH applet is locked — enter its password and try again."
             case 0x6A80: return "The key rejected the credential format (wrong syntax)."
             default: break
             }

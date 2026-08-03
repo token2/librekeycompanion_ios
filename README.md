@@ -53,7 +53,7 @@ NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 
 | Module | State | Notes |
 |--------|-------|-------|
-| OATH (TOTP/HOTP) | ✅ Implemented | List, live codes, add (QR + paste), delete (swipe), touch-required, HOTP counter. Core verified against RFC 4226/6238; PUT/DELETE framing tested against the YKOATH spec |
+| OATH (TOTP/HOTP) | ✅ Implemented | List, live codes, add (QR + paste), delete (swipe), touch-required, HOTP counter, password-protected applets (VALIDATE unlock). Core verified against RFC 4226/6238; PUT/DELETE/VALIDATE framing tested against the YKOATH spec; PBKDF2 against RFC 6070 |
 | Transport (NFC) | ✅ Implemented | APDU + GET RESPONSE chaining, extended length |
 | MDS | ✅ Implemented | 102-entry bundled starter set + in-app update that fetches the live MDS3 JWT blob from mds3.fidoalliance.org. Info tab shows entry count, source, last-updated, and an update button. Resolves AAGUID→model/certification in the FIDO2 tab. Ported from fido/MdsRepository.kt |
 | FIDO2 mgmt | ✅ Implemented (NFC) | Full management UI: getInfo, PIN retries, set/change PIN, alwaysUV toggle, list/delete passkeys. CBOR + PIN/UV v1/v2 crypto ported from `fido/ctap/`. Fingerprint enrollment omitted (needs held USB session) |
@@ -110,8 +110,25 @@ extended-length APDU encoding. `YKOATHFramingTests` uses a mock transport to
 assert the PUT/DELETE byte layout — touch property byte (0x78 0x02), 4-byte HOTP
 IMF (0x7A), and the DELETE name TLV — against the
 [YKOATH protocol spec](https://developers.yubico.com/OATH/YKOATH_Protocol.html).
-The HOTP/TOTP math and the IMF/property encoding were additionally cross-checked
-against Python during development.
+`OATHPasswordTests` pins the password path: PBKDF2-HMAC-SHA1 against the RFC 6070
+vectors, HMAC-SHA1 against RFC 2202, and the VALIDATE handshake — request framing,
+mutual-authentication check, and the 6982-means-locked mapping — against a scripted
+mock card. The HOTP/TOTP math and the IMF/property encoding were additionally
+cross-checked against Python during development.
+
+## Password-protected OATH
+
+A YubiKey whose OATH applet has a password answers SELECT normally, then rejects
+every instruction with `SW 6982` until VALIDATE succeeds. The app derives the
+access key as PBKDF2-HMAC-SHA1(UTF-8 password, salt = the applet's device ID,
+1000 iterations, 16 bytes), sends VALIDATE, and verifies the applet's own proof
+over a random challenge before trusting the channel.
+
+The password is **not** a PIN — a wrong attempt consumes no retry counter and
+cannot lock the key. The derived key is held in memory for the session only
+(never written to disk, cleared when a USB key is unplugged), so consecutive taps
+don't re-prompt. Because each iOS operation is its own NFC session, entering the
+password resumes the interrupted operation on the next tap.
 
 ## Adding credentials
 

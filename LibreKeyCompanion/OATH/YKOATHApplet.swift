@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// A credential stored on the YKOATH applet.
 public struct OATHCredential: Identifiable, Hashable {
@@ -44,7 +45,13 @@ public final class YKOATHApplet {
         static let reset: UInt8 = 0x04
         static let list: UInt8 = 0xA1
         static let calculate: UInt8 = 0xA2
+        static let validate: UInt8 = 0xA3
         static let calculateAll: UInt8 = 0xA4
+    }
+    // Status words that mean "locked" / "wrong password".
+    private enum SW {
+        static let securityStatusNotSatisfied: UInt16 = 0x6982
+        static let incorrectParameters: UInt16 = 0x6A80
     }
     // TLV tags used by the applet.
     private enum Tag {
@@ -54,6 +61,8 @@ public final class YKOATHApplet {
         static let responseFull: UInt8 = 0x75
         static let responseTrunc: UInt8 = 0x76
         static let property: UInt8 = 0x78
+        static let version: UInt8 = 0x79
+        static let algorithm: UInt8 = 0x7B
         static let listEntry: UInt8 = 0x72
         static let imf: UInt8 = 0x7A          // initial moving factor (HOTP counter)
     }
@@ -62,18 +71,117 @@ public final class YKOATHApplet {
         static let requireTouch: UInt8 = 0x02
     }
 
+    /// What SELECT reported about the applet on this channel.
+    public struct AppletInfo {
+        /// A password is set: `validate(accessKey:)` must run before anything else.
+        public let isPasswordProtected: Bool
+        /// Name TLV (0x71) — the PBKDF2 salt for the access key.
+        public let deviceId: Data
+        /// The applet's challenge (0x74); empty when no password is set.
+        public let challenge: Data
+        /// HMAC used by VALIDATE (0x7B); SHA-1 when the tag is absent.
+        public let algorithmCode: UInt8
+        public let version: String
+    }
+
+    /// SELECT state for the current channel, cleared by the next SELECT.
+    private var selected: AppletInfo?
+    private var validated = false
+
+    /// True when a password is set and this channel hasn't been unlocked yet.
+    public var isLocked: Bool { (selected?.isPasswordProtected ?? false) && !validated }
+
     public init(transport: KeyTransport) { self.transport = transport }
 
     /// SELECT the OATH applet. Call once per session before other operations.
-    public func select() async throws {
-        try await transport.selectApplet(aid: Data([0xA0,0x00,0x00,0x05,0x27,0x21,0x01]))
+    ///
+    /// SELECT succeeds even on a password-protected applet, so its return value
+    /// is the only way to learn the key is locked before the first instruction
+    /// comes back 6982.
+    @discardableResult
+    public func select() async throws -> AppletInfo {
+        let resp = try await transport.selectApplet(aid: Data([0xA0,0x00,0x00,0x05,0x27,0x21,0x01]))
+        let tlvs = TLV.parse(resp.data)
+        func value(_ tag: UInt8) -> Data? { tlvs.first(where: { $0.tag == tag })?.value }
+
+        let challenge = value(Tag.challenge) ?? Data()
+        let info = AppletInfo(
+            isPasswordProtected: !challenge.isEmpty,
+            deviceId: value(Tag.name) ?? Data(),
+            challenge: challenge,
+            algorithmCode: value(Tag.algorithm)?.first ?? OATHAlgorithm.sha1.ykoathCode,
+            version: (value(Tag.version) ?? Data()).map { String($0) }.joined(separator: "."))
+        selected = info
+        validated = !info.isPasswordProtected
+        return info
+    }
+
+    /// VALIDATE (INS A3): prove knowledge of the access key, then verify the
+    /// applet's own proof over a challenge of ours.
+    ///
+    /// Must follow a `select()` on the same channel — the challenge is issued
+    /// per selection, so a failed attempt needs a fresh SELECT before retrying.
+    /// Unlike a FIDO PIN this consumes no retry counter: a wrong password is
+    /// simply rejected.
+    public func validate(accessKey: Data) async throws {
+        guard let info = selected else {
+            throw KeyError.parsing("SELECT the OATH applet before VALIDATE.")
+        }
+        guard info.isPasswordProtected else { validated = true; return }
+
+        var ourChallenge = Data(count: 8)
+        ourChallenge.withUnsafeMutableBytes { buf in
+            _ = SecRandomCopyBytes(kSecRandomDefault, 8, buf.baseAddress!)
+        }
+
+        var data = Data()
+        data.append(TLV.encode(tag: Tag.responseFull,
+                               value: OATHPassword.hmac(algorithmCode: info.algorithmCode,
+                                                        key: accessKey,
+                                                        data: info.challenge)))
+        data.append(TLV.encode(tag: Tag.challenge, value: ourChallenge))
+
+        let resp = try await transport.transmit(
+            APDU(cla: 0x00, ins: INS.validate, p1: 0x00, p2: 0x00, data: data, le: 256))
+        if !resp.isSuccess {
+            if resp.sw == SW.securityStatusNotSatisfied
+                || resp.sw == SW.incorrectParameters
+                || (resp.sw & 0xFFF0) == 0x63C0 {
+                throw KeyError.oathPasswordIncorrect(deviceId: info.deviceId)
+            }
+            throw KeyError.unexpectedStatus(resp.sw)
+        }
+
+        // Mutual authentication: the applet must answer our challenge with the
+        // same key, otherwise it only pretended to accept.
+        guard let proof = TLV.parse(resp.data).first(where: { $0.tag == Tag.responseFull })?.value else {
+            throw KeyError.parsing("VALIDATE response carried no proof.")
+        }
+        let expected = OATHPassword.hmac(algorithmCode: info.algorithmCode,
+                                         key: accessKey, data: ourChallenge)
+        guard OATHPassword.constantTimeEquals(expected, proof) else {
+            throw KeyError.parsing("The OATH applet failed mutual authentication.")
+        }
+        validated = true
+    }
+
+    /// A locked applet answers every instruction with 6982. Report that as a
+    /// password request rather than a raw status word, so a protected key is not
+    /// mistaken for a broken or absent one.
+    private func check(_ resp: APDUResponse) throws {
+        guard !resp.isSuccess else { return }
+        if resp.sw == SW.securityStatusNotSatisfied {
+            validated = false
+            throw KeyError.oathPasswordRequired(deviceId: selected?.deviceId ?? Data())
+        }
+        throw KeyError.unexpectedStatus(resp.sw)
     }
 
     /// LIST all credential names and their type/algorithm metadata.
     public func list() async throws -> [OATHCredential] {
         let resp = try await transport.transmit(
             APDU(cla: 0x00, ins: INS.list, p1: 0x00, p2: 0x00, le: 256))
-        guard resp.isSuccess else { throw KeyError.unexpectedStatus(resp.sw) }
+        try check(resp)
 
         var creds: [OATHCredential] = []
         for tlv in TLV.parse(resp.data) where tlv.tag == Tag.listEntry {
@@ -111,7 +219,7 @@ public final class YKOATHApplet {
         // P2 = 0x01 requests a truncated response.
         let resp = try await transport.transmit(
             APDU(cla: 0x00, ins: INS.calculate, p1: 0x00, p2: 0x01, data: data, le: 256))
-        guard resp.isSuccess else { throw KeyError.unexpectedStatus(resp.sw) }
+        try check(resp)
 
         guard let tlv = TLV.parse(resp.data).first(where: { $0.tag == Tag.responseTrunc }),
               tlv.value.count >= 5 else {
@@ -153,7 +261,7 @@ public final class YKOATHApplet {
 
         let resp = try await transport.transmit(
             APDU(cla: 0x00, ins: INS.put, p1: 0x00, p2: 0x00, data: data, le: 0))
-        guard resp.isSuccess else { throw KeyError.unexpectedStatus(resp.sw) }
+        try check(resp)
     }
 
     /// DELETE a credential by name.
@@ -161,6 +269,6 @@ public final class YKOATHApplet {
         let data = TLV.encode(tag: Tag.name, value: Data(cred.id.utf8))
         let resp = try await transport.transmit(
             APDU(cla: 0x00, ins: INS.delete, p1: 0x00, p2: 0x00, data: data, le: 0))
-        guard resp.isSuccess else { throw KeyError.unexpectedStatus(resp.sw) }
+        try check(resp)
     }
 }

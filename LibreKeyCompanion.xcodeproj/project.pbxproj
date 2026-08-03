@@ -17,6 +17,7 @@
 		203736084B72D278A2A42FEA /* OTPAuthURI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */; };
 		E965EDB3FC57209C9C5CB80D /* TLV.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6548EC50A6D70B24E8F109B /* TLV.swift */; };
 		E30D805058DB85D0FEC78094 /* YKOATHApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */; };
+		ED44DD3571D4CE80E980946F /* OATHPassword.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF76D941141B431B6709DDBF /* OATHPassword.swift */; };
 		8A67EB6FAE9D1278EDDC477A /* OpenPGPApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B5957795A064B901748639 /* OpenPGPApplet.swift */; };
 		61A95D4733938C6BB63506B9 /* PIVApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A021DD2474763850FFB64E /* PIVApplet.swift */; };
 		0B22622B82531219E5F3ECC8 /* Token2Codec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679EEEDBD99EF5E950062146 /* Token2Codec.swift */; };
@@ -39,6 +40,7 @@
 		1A461D27F7E4C97FE23574A4 /* TransportPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433525195DE6EC1262BD2542 /* TransportPicker.swift */; };
 		C8FA8B458E579CD8C40B3D40 /* CborTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7E93A9B284C032203A8C53 /* CborTests.swift */; };
 		97721E954F5CE934B9E078D2 /* OATHCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */; };
+		0139948BF82BA5D53CA87EAA /* OATHPasswordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A431E2DC7C3719390C1E9B /* OATHPasswordTests.swift */; };
 		E51D4D40DE6AEE07EB55E23E /* Token2CodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */; };
 		F986A86B1E46502ED3E7C528 /* YKOATHFramingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */; };
 		8D15AE80EEDA744B13F1DF33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB0F1317A694829D3E959385 /* Assets.xcassets */; };
@@ -68,6 +70,7 @@
 		0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OTPAuthURI.swift"; sourceTree = "<group>"; };
 		E6548EC50A6D70B24E8F109B /* TLV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TLV.swift"; sourceTree = "<group>"; };
 		C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "YKOATHApplet.swift"; sourceTree = "<group>"; };
+		AF76D941141B431B6709DDBF /* OATHPassword.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHPassword.swift"; sourceTree = "<group>"; };
 		69B5957795A064B901748639 /* OpenPGPApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpenPGPApplet.swift"; sourceTree = "<group>"; };
 		66A021DD2474763850FFB64E /* PIVApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PIVApplet.swift"; sourceTree = "<group>"; };
 		679EEEDBD99EF5E950062146 /* Token2Codec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2Codec.swift"; sourceTree = "<group>"; };
@@ -90,6 +93,7 @@
 		433525195DE6EC1262BD2542 /* TransportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TransportPicker.swift"; sourceTree = "<group>"; };
 		BB7E93A9B284C032203A8C53 /* CborTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CborTests.swift"; sourceTree = "<group>"; };
 		148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHCoreTests.swift"; sourceTree = "<group>"; };
+		F9A431E2DC7C3719390C1E9B /* OATHPasswordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHPasswordTests.swift"; sourceTree = "<group>"; };
 		2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Token2CodecTests.swift"; sourceTree = "<group>"; };
 		2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "YKOATHFramingTests.swift"; sourceTree = "<group>"; };
 		84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibreKeyCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -169,6 +173,7 @@
 				0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */,
 				E6548EC50A6D70B24E8F109B /* TLV.swift */,
 				C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */,
+				AF76D941141B431B6709DDBF /* OATHPassword.swift */,
 			);
 			path = "OATH";
 			sourceTree = "<group>";
@@ -275,6 +280,7 @@
 			children = (
 				BB7E93A9B284C032203A8C53 /* CborTests.swift */,
 				148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */,
+				F9A431E2DC7C3719390C1E9B /* OATHPasswordTests.swift */,
 				2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */,
 				2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */,
 			);
@@ -366,6 +372,7 @@
 				203736084B72D278A2A42FEA /* OTPAuthURI.swift in Sources */,
 				E965EDB3FC57209C9C5CB80D /* TLV.swift in Sources */,
 				E30D805058DB85D0FEC78094 /* YKOATHApplet.swift in Sources */,
+				ED44DD3571D4CE80E980946F /* OATHPassword.swift in Sources */,
 				8A67EB6FAE9D1278EDDC477A /* OpenPGPApplet.swift in Sources */,
 				61A95D4733938C6BB63506B9 /* PIVApplet.swift in Sources */,
 				0B22622B82531219E5F3ECC8 /* Token2Codec.swift in Sources */,
@@ -395,6 +402,7 @@
 			files = (
 				C8FA8B458E579CD8C40B3D40 /* CborTests.swift in Sources */,
 				97721E954F5CE934B9E078D2 /* OATHCoreTests.swift in Sources */,
+				0139948BF82BA5D53CA87EAA /* OATHPasswordTests.swift in Sources */,
 				E51D4D40DE6AEE07EB55E23E /* Token2CodecTests.swift in Sources */,
 				F986A86B1E46502ED3E7C528 /* YKOATHFramingTests.swift in Sources */,
 			);

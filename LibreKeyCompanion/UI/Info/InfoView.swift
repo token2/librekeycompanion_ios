@@ -51,7 +51,8 @@ struct InfoView: View {
                         }
                     }
                     Section("Applets") {
-                        statusRow("OATH (TOTP/HOTP)", systemImage: "clock.fill", present: session.oathPresent)
+                        statusRow("OATH (TOTP/HOTP)", systemImage: "clock.fill",
+                                  present: session.oathPresent, locked: session.oathLocked)
                             .contentShape(Rectangle())
                             .onTapGesture { goToTab(1) }
                         if session.transportMode == .usb {
@@ -178,11 +179,17 @@ struct InfoView: View {
 
     /// A present/absent row with a green check or a dimmed dash.
     @ViewBuilder
-    private func statusRow(_ title: String, systemImage: String, present: Bool?) -> some View {
+    private func statusRow(_ title: String, systemImage: String, present: Bool?,
+                          locked: Bool = false) -> some View {
         HStack {
             Label(title, systemImage: systemImage)
             Spacer()
-            if present == true {
+            if locked {
+                // Present, but password protected: the OTP tab prompts to unlock.
+                Label("Locked", systemImage: "lock.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else if present == true {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             } else if present == false {
                 Image(systemName: "minus.circle").foregroundStyle(.secondary)
