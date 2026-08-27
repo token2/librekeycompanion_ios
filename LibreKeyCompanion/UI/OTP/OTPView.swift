@@ -108,6 +108,36 @@ struct OTPView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { entryFields = OTPEntryFields(); showAdd = true } label: { Image(systemName: "plus") }
                 }
+                if session.otpPinProtected {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            if session.otpUnlocked {
+                                Task { await session.otpLock() }
+                            } else {
+                                session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .unlock)
+                            }
+                        } label: {
+                            Image(systemName: session.otpUnlocked ? "lock.open" : "lock")
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Set OTP PIN…")    { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .set) }
+                        Button("Change OTP PIN…") { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .change) }
+                        Button("Remove OTP PIN…", role: .destructive) { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .remove) }
+                        if session.rememberedOtpPin != nil {
+                            Divider()
+                            Button("Forget remembered PIN") { session.forgetOtpPin() }
+                        }
+                    } label: {
+                        Image(systemName: "key.horizontal")
+                    }
+                }
+            }
+            .sheet(item: $session.otpPinPrompt) { prompt in
+                Token2PinSheet(kind: prompt.kind)
+                    .environmentObject(session)
             }
             .overlay {
                 if session.credentials.isEmpty && !session.isScanning && session.errorMessage == nil {

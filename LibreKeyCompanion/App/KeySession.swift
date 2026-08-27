@@ -20,6 +20,29 @@ final class KeySession: ObservableObject {
     enum OTPKind { case unknown, oath, token2 }
     @Published var detectedKind: OTPKind = .unknown
 
+    // ---- Token2 OTP PIN (privacy protection, R3.4+) ----
+    /// The current Token2 key is PIN-protected (learned from a 6982 on read).
+    @Published var otpPinProtected = false
+    /// A verified PIN is currently held for reads/writes this scan.
+    @Published var otpUnlocked = false
+    /// When non-nil, the OTP tab shows a PIN entry sheet for this purpose.
+    @Published var otpPinPrompt: OtpPinPrompt?
+    /// Remembered OTP PIN — in memory only, never persisted. Cleared on forget/lock.
+    @Published private(set) var rememberedOtpPin: String?
+    func forgetOtpPin() {
+        rememberedOtpPin = nil
+        otpUnlocked = false
+        credentials = []      // clear shown codes immediately
+        statusMessage = "OTP PIN forgotten — unlock to view codes."
+    }
+
+    /// What a pending OTP-PIN sheet is for.
+    struct OtpPinPrompt: Identifiable {
+        let id = UUID()
+        enum Kind { case unlock, set, change, remove }
+        let kind: Kind
+    }
+
     /// Connection transport for CCID-interface applets (OATH, Token2, PIV, PGP).
     /// FIDO2 always uses NFC regardless (its HID interface isn't USB-reachable).
     enum TransportMode: String { case nfc, usb }
@@ -303,6 +326,16 @@ final class KeySession: ObservableObject {
             }
         } catch let e as KeyError {
             if case .userCancelled = e { /* silent */ }
+            else if case .otpPinNotVerified = e {
+                // Protected key, no/again-wrong PIN: show the unlock sheet.
+                otpPinProtected = true; otpUnlocked = false
+                statusMessage = "These codes are PIN-protected. Enter your OTP PIN to unlock."
+                otpPinPrompt = OtpPinPrompt(kind: .unlock)
+            }
+            else if case .otpPinBlocked = e {
+                otpPinProtected = true
+                errorMessage = e.errorDescription
+            }
             else if requestOATHPassword(for: e, retry: { [weak self] in
                 guard let self else { return }
                 await self.scanOATH()
@@ -317,25 +350,161 @@ final class KeySession: ObservableObject {
     /// Read entries from a Token2 on-device OTP applet.
     private func readTokens(from applet: Token2OTPApplet) async throws {
         let now = Int64(Date().timeIntervalSince1970)
+
+        // Determine whether this key even has an OTP PIN before touching any PIN
+        // path. On firmware without the feature (or a key with no PIN set),
+        // pinStatus reports not-set (or throws unsupported), and we read normally.
+        var isProtected = false
+        do {
+            isProtected = try await applet.pinStatus().isSet
+        } catch KeyError.otpPinNotVerified {
+            isProtected = true             // firmware answers the flag read only when locked
+        } catch {
+            // Any other outcome (otpPinUnsupported, unexpectedStatus, older
+            // firmware that doesn't know the flag command) means this key has no
+            // usable OTP PIN — read it normally without any PIN path.
+            isProtected = false
+        }
+        otpPinProtected = isProtected
+
+        if isProtected {
+            guard let pin = rememberedOtpPin else {
+                // Protected but we hold no PIN — prompt to unlock, read nothing yet.
+                otpUnlocked = false
+                credentials = []
+                statusMessage = "These codes are PIN-protected. Enter your OTP PIN to unlock."
+                otpPinPrompt = OtpPinPrompt(kind: .unlock)
+                return
+            }
+            do {
+                try await applet.verifyOtpPin(Data(pin.utf8))
+                otpUnlocked = true
+            } catch KeyError.otpPinNotVerified {
+                rememberedOtpPin = nil; otpUnlocked = false
+                credentials = []
+                statusMessage = "Wrong OTP PIN. Enter it again to unlock."
+                otpPinPrompt = OtpPinPrompt(kind: .unlock)
+                return
+            }
+        } else {
+            otpUnlocked = false
+        }
+
         let entries = try await applet.enumerate(timestampSeconds: now)
-        var live: [LiveCode] = []
-        for e in entries {
+        credentials = liveCodes(from: entries, now: now)
+        statusMessage = credentials.isEmpty ? "No OTP entries on this Token2 key." :
+                                              "Read \(credentials.count) Token2 entry(ies)."
+    }
+
+    // MARK: - OTP PIN operations (each is one NFC session)
+
+    /// Run a block against a freshly-connected Token2 applet in one session.
+    private func withToken2<T>(alert: String, _ body: (Token2OTPApplet) async throws -> T) async throws -> T {
+        let transport = try await makeCCIDTransport(alert: alert)
+        defer { transport.invalidate(message: "Done.") }
+        let token2 = Token2OTPApplet(transport: transport)
+        guard await token2.isPresent() else { throw KeyError.appletNotPresent("Token2") }
+        return try await body(token2)
+    }
+
+    /// Read PIN status (for the set/change/remove menu).
+    func otpReadPinStatus() async -> Token2OTPApplet.PinFlag? {
+        do { return try await withToken2(alert: "Hold your key near the phone.") { try await $0.pinStatus() } }
+        catch { await MainActor.run { self.mapOtpPinError(error) }; return nil }
+    }
+
+    /// Unlock: verify the PIN, then read codes — in one session.
+    func otpUnlock(pin: String, remember: Bool) async {
+        isScanning = true; errorMessage = nil
+        do {
+            try await withToken2(alert: "Hold your key near the phone to unlock codes.") { applet in
+                try await applet.verifyOtpPin(Data(pin.utf8))
+                self.otpPinProtected = true; self.otpUnlocked = true
+                let now = Int64(Date().timeIntervalSince1970)
+                let entries = try await applet.enumerate(timestampSeconds: now)
+                self.credentials = self.liveCodes(from: entries, now: now)
+                self.statusMessage = "Read \(self.credentials.count) Token2 entry(ies)."
+            }
+            // Keep the PIN only if the user asked to remember it (in memory only).
+            rememberedOtpPin = remember ? pin : nil
+        } catch KeyError.otpPinNotVerified {
+            rememberedOtpPin = nil; otpUnlocked = false
+            let left = (try? await otpReadRetries()) ?? nil
+            errorMessage = left.map { "Wrong OTP PIN — \($0) of 100 attempts left." } ?? "Wrong OTP PIN."
+            otpPinPrompt = OtpPinPrompt(kind: .unlock)
+        } catch {
+            rememberedOtpPin = nil
+            mapOtpPinError(error)
+        }
+        isScanning = false
+    }
+
+    private func otpReadRetries() async throws -> Int? {
+        try await withToken2(alert: "Hold your key near the phone.") { try await $0.pinStatus().retriesLeft }
+    }
+
+    func otpSetPin(_ pin: String) async {
+        await runOtpPinChange(alert: "Hold your key near the phone to set the OTP PIN.") {
+            try await $0.setOtpPin(Data(pin.utf8))
+        } success: { "OTP PIN set." }
+    }
+    func otpChangePin(current: String, new: String) async {
+        await runOtpPinChange(alert: "Hold your key near the phone to change the OTP PIN.") {
+            try await $0.changeOtpPin(current: Data(current.utf8), new: Data(new.utf8))
+        } success: { "OTP PIN changed." }
+    }
+    func otpRemovePin(current: String) async {
+        await runOtpPinChange(alert: "Hold your key near the phone to remove the OTP PIN.") {
+            try await $0.removeOtpPin(current: Data(current.utf8))
+        } success: { self.otpPinProtected = false; self.otpUnlocked = false; return "OTP PIN removed." }
+    }
+
+    private func runOtpPinChange(alert: String,
+                                 _ op: @escaping (Token2OTPApplet) async throws -> Void,
+                                 success: @escaping () -> String) async {
+        isScanning = true; errorMessage = nil
+        do {
+            try await withToken2(alert: alert) { try await op($0) }
+            statusMessage = success()
+        } catch { mapOtpPinError(error) }
+        isScanning = false
+    }
+
+    /// Lock: forget the PIN and close the device window on the next contact.
+    func otpLock() async {
+        // Forget the PIN and clear the shown codes immediately. No NFC tap is
+        // needed: each scan is its own session, so the device's verify window is
+        // already closed once the read that opened it ended. Re-reading a
+        // protected key will prompt for the PIN again.
+        rememberedOtpPin = nil
+        otpUnlocked = false
+        credentials = []
+        errorMessage = nil
+        statusMessage = "OTP codes locked — unlock to view."
+    }
+
+    private func liveCodes(from entries: [Token2Codec.Entry], now: Int64) -> [LiveCode] {
+        entries.map { e in
             let remaining = e.isTotp ? OATHCore.secondsRemaining(time: Double(now), step: Double(e.timestep)) : 0
             let display: String
             if let code = e.otpCode { display = code }
             else if e.buttonRequired { display = "touch" }
             else if e.isTotp { display = "—" }
             else { display = "— HOTP —" }
-            live.append(LiveCode(id: "\(e.appName):\(e.accountName)",
-                                 issuer: e.appName.isEmpty ? nil : e.appName,
-                                 account: e.accountName,
-                                 code: display,
-                                 secondsRemaining: remaining,
-                                 touchRequired: e.buttonRequired))
+            return LiveCode(id: "\(e.appName):\(e.accountName)",
+                            issuer: e.appName.isEmpty ? nil : e.appName,
+                            account: e.accountName, code: display,
+                            secondsRemaining: remaining, touchRequired: e.buttonRequired)
         }
-        credentials = live
-        statusMessage = live.isEmpty ? "No OTP entries on this Token2 key." :
-                                       "Read \(live.count) Token2 entry(ies)."
+    }
+
+    private func mapOtpPinError(_ error: Error) {
+        if let e = error as? KeyError {
+            if case .userCancelled = e { return }
+            errorMessage = e.errorDescription
+        } else {
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// Fetch the code for a single touch-required Token2 entry. READ_ONE makes the
@@ -403,6 +572,25 @@ final class KeySession: ObservableObject {
                 detectedKind = .token2
                 guard let entry = fields.buildToken2Entry() else {
                     throw KeyError.parsing("Need an account and a valid Base32 secret.")
+                }
+                // On a protected key we must open the verify window on this same
+                // session before the write (which then uses the session-key format).
+                var isProtected = false
+                do { isProtected = try await token2.pinStatus().isSet }
+                catch KeyError.otpPinNotVerified { isProtected = true }
+                catch { isProtected = false }
+
+                if isProtected {
+                    guard let pin = rememberedOtpPin else {
+                        // No PIN held — can't write to a locked store. Ask the user
+                        // to unlock first, then retry the add.
+                        otpPinProtected = true; otpUnlocked = false
+                        isScanning = false
+                        errorMessage = "This key is PIN-protected. Unlock it first, then add the entry."
+                        otpPinPrompt = OtpPinPrompt(kind: .unlock)
+                        return
+                    }
+                    try await token2.verifyOtpPin(Data(pin.utf8))
                 }
                 try await token2.writeEntry(entry)
                 statusMessage = "Added \(entry.appName.isEmpty ? entry.accountName : entry.appName)."
@@ -488,6 +676,21 @@ final class KeySession: ObservableObject {
             if await token2.isPresent() {
                 detectedKind = .token2
                 let (app, acct) = splitId(id)
+                var isProtected = false
+                do { isProtected = try await token2.pinStatus().isSet }
+                catch KeyError.otpPinNotVerified { isProtected = true }
+                catch { isProtected = false }
+
+                if isProtected {
+                    guard let pin = rememberedOtpPin else {
+                        otpPinProtected = true; otpUnlocked = false
+                        isScanning = false
+                        errorMessage = "This key is PIN-protected. Unlock it first, then delete."
+                        otpPinPrompt = OtpPinPrompt(kind: .unlock)
+                        return
+                    }
+                    try await token2.verifyOtpPin(Data(pin.utf8))
+                }
                 try await token2.deleteEntry(app: app, acct: acct)
             } else {
                 detectedKind = .oath

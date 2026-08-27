@@ -59,7 +59,7 @@ NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 | FIDO2 mgmt | ✅ Implemented (NFC) | Full management UI: getInfo, PIN retries, set/change PIN, alwaysUV toggle, list/delete passkeys. CBOR + PIN/UV v1/v2 crypto ported from `fido/ctap/`. Fingerprint enrollment omitted (needs held USB session) |
 | OpenPGP (read) | 🟧 Skeleton | Needs Application-Related-Data BER-TLV parser |
 | PIV (read) | 🟧 Skeleton | Needs DER/X.509 parser from `piv/` |
-| Token2 OTP | ✅ Implemented | Auto-detected on scan. Read + manual-entry form (issuer/account/secret/algorithm/period/digits/touch) with QR populating editable fields, plus write/delete. ECDH-P256/AES crypto + codec ported from `token2/`, validated against spec §10.1/§10.2 |
+| Token2 OTP | ✅ Implemented | Auto-detected on scan. Read + manual-entry form (issuer/account/secret/algorithm/period/digits/touch) with QR populating editable fields, plus write/delete. On firmware **R3.4+**, also set/change/remove the on-device **OTP PIN** (privacy protection) and unlock PIN-protected codes for view/add/delete. ECDH-P256/AES crypto + codec ported from `token2/`, validated against spec §10.1/§10.2; the PIN session crypto (HMAC-SHA256 ladder, AES-CBC verify/set/change) validated against the reference vectors in `Token2PinCryptoTests` |
 
 Skeletons SELECT the correct AID and frame the right APDUs; the parsers/crypto
 marked `PORTING NOTE` must be ported and re-validated against the same spec
