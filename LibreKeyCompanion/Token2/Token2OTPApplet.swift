@@ -25,7 +25,23 @@ final class Token2OTPApplet {
         static let enumCodes: [UInt8]     = [0x80, 0xC5, 0x05, 0x00]
         static let enumContinue: [UInt8]  = [0x80, 0xC5, 0x05, 0x01]
         static let writeSeed: [UInt8]     = [0x80, 0xC5, 0x05, 0x02]
+        // OTP PIN / privacy protection (R3.4+).
+        static let readOtpPinFlag: [UInt8]       = [0x80, 0xC5, 0x05, 0x04]
+        static let setOtpPin: [UInt8]            = [0x80, 0xC5, 0x05, 0x05]
+        static let verifyOtpPin: [UInt8]         = [0x80, 0xC5, 0x05, 0x06]
+        static let changeOtpPin: [UInt8]         = [0x80, 0xC5, 0x05, 0x08]
+        static let readAgreementPubkey: [UInt8]  = [0x80, 0xC5, 0x05, 0x09]
     }
+    private enum PinFlagLc {
+        static let base: UInt8 = 0x04       // status only
+        static let challenge: UInt8 = 0x29  // status + verify challenge (IV||EncRand)
+        static let prime: UInt8 = 0x09      // "prime" read before the handshake
+    }
+
+    /// Set after a successful verifyOtpPin: on a protected key, enumerate/read
+    /// responses come back encrypted (IV || EncData || Auth) under these keys and
+    /// must be decrypted before parsing. Also selects the protected-write format.
+    private var pinSession: Token2PinCrypto.SessionKeys?
 
     struct DeviceInfo {
         let totpSupported: Bool
@@ -68,7 +84,34 @@ final class Token2OTPApplet {
         case 0x6A80, 0x6A83: return .parsing("Token2: entry not found")
         case 0x6A84:         return .parsing("Token2: not enough space on key")
         case 0x6FF9:         return .buttonPressRequired
+        // 6982 = security status not satisfied. On a PIN-protected key an ordinary
+        // read returns this until the verify window is open — surface it so the UI
+        // can prompt to unlock.
+        case 0x6982:         return .otpPinNotVerified
+        case 0x6983:         return .otpPinBlocked
         default:             return .unexpectedStatus(sw)
+        }
+    }
+
+    /// Transmit and return the raw response WITHOUT throwing on a non-9000 SW —
+    /// PIN commands must inspect status words (6982/6983/6A81/6A86/63xx).
+    private func transmitRaw(_ apdu: APDU) async throws -> APDUResponse {
+        try await transport.transmit(apdu)
+    }
+
+    /// Map a PIN-command status word to a typed error (or return on success).
+    private func checkPin(_ sw: UInt16) throws {
+        switch sw {
+        case 0x9000, 0x6100, 0x6101: return
+        case 0x6982: throw KeyError.otpPinNotVerified
+        case 0x6983: throw KeyError.otpPinBlocked
+        case 0x6A81: throw KeyError.otpPinWrongState
+        case 0x6A86, 0x6AF8: throw KeyError.otpPinUnsupported(sw)
+        default:
+            // 63xx = verification failed (low nibble often = retries left) → wrong PIN.
+            if (sw & 0xFF00) == 0x6300 { throw KeyError.otpPinNotVerified }
+            if (sw & 0xFF00) == 0x6100 { return }
+            throw KeyError.unexpectedStatus(sw)
         }
     }
 
@@ -101,16 +144,38 @@ final class Token2OTPApplet {
     /// Enumerate all entries, following ENUM_CODES_CONTINUE paging (§6.1).
     func enumerate(timestampSeconds: Int64) async throws -> [Token2Codec.Entry] {
         var all: [Token2Codec.Entry] = []
-        var resp = try await transmitChecked(
-            apduExt(Cmd.enumCodes, Token2Codec.serializeReadAll(timestampSeconds: timestampSeconds)))
-        while true {
-            let (entries, more) = try Token2Codec.parseEnumPage(resp, fullDecode: false)
-            all.append(contentsOf: entries)
-            if !more { break }
-            resp = try await transmitChecked(
-                apduExt(Cmd.enumContinue, Token2Codec.serializeContinue(timestampSeconds: timestampSeconds)))
+        var resp = maybeDecryptPage(try await transmitChecked(
+            apduExt(Cmd.enumCodes, Token2Codec.serializeReadAll(timestampSeconds: timestampSeconds))))
+        do {
+            while true {
+                let (entries, more) = try Token2Codec.parseEnumPage(resp, fullDecode: false)
+                all.append(contentsOf: entries)
+                if !more { break }
+                resp = maybeDecryptPage(try await transmitChecked(
+                    apduExt(Cmd.enumContinue, Token2Codec.serializeContinue(timestampSeconds: timestampSeconds))))
+            }
+        } catch {
+            // If parsing failed with no active PIN session, the key likely returned
+            // an encrypted page from a still-open window we don't hold keys for.
+            // Surface as needs-verify instead of crashing on garbage.
+            if pinSession == nil { throw KeyError.otpPinNotVerified }
+            throw error
         }
         return all
+    }
+
+    /// On a PIN-protected key (after verifyOtpPin) enumerate/read responses arrive
+    /// as IV(16) || EncData || Auth(16) under the session keys. Decrypt + MAC-check;
+    /// otherwise pass through unchanged.
+    private func maybeDecryptPage(_ data: Data) -> Data {
+        guard let keys = pinSession, data.count >= 48 else { return data }
+        let iv = data.prefix(16)
+        let enc = data.dropFirst(16).dropLast(16)
+        let auth = data.suffix(16)
+        guard Token2PinCrypto.verifyAuthTag(macKey: keys.mac, data: Data(enc), tag: Data(auth)) else {
+            return data   // not our encrypted page (or MAC mismatch) — let parser decide
+        }
+        return (try? Token2PinCrypto.sessionDecrypt(key: keys.enc, iv: Data(iv), ciphertext: Data(enc))) ?? data
     }
 
     /// Read one entry, always including the code.
@@ -121,23 +186,146 @@ final class Token2OTPApplet {
             ?? { throw KeyError.parsing("no entry returned") }()
     }
 
-    /// Write or update an entry (encrypted, IV-1).
-    func writeEntry(_ entry: Token2Codec.Entry) async throws {
-        let cleartext = try Token2Codec.serializeWriteEntry(entry)
+    /// Seal a write cleartext, choosing format by PIN state (matches the reference
+    /// `seal`): if a verify window is open the device rejects GET_ECDH_PUBKEY with
+    /// 6A81, so reuse the session keys in the authenticated protected-write format;
+    /// otherwise build the standard ephemeral-ECDH seed blob.
+    private func sealWrite(_ cleartext: Data) async throws -> Data {
+        if let keys = pinSession {
+            return try Token2PinCrypto.buildProtectedWriteData(keys, cleartext: cleartext)
+        }
         let pubkey = try await getEcdhPubkey()
-        let blob = try Token2Crypto.encryptPayload(devicePubXy: pubkey, cleartext: cleartext, iv: Token2Crypto.IV_WRITE_SEED)
-        _ = try await transmitChecked(apduExt(Cmd.writeSeed, blob))
+        return try Token2Crypto.encryptPayload(devicePubXy: pubkey, cleartext: cleartext, iv: Token2Crypto.IV_WRITE_SEED)
     }
 
-    /// Delete an entry (encrypted empty-seed write, IV-1).
+    /// Write or update an entry (encrypted, IV-1; protected format when PIN-verified).
+    func writeEntry(_ entry: Token2Codec.Entry) async throws {
+        let cleartext = try Token2Codec.serializeWriteEntry(entry)
+        _ = try await transmitChecked(apduExt(Cmd.writeSeed, try await sealWrite(cleartext)))
+    }
+
+    /// Delete an entry (encrypted empty-seed write, IV-1; protected when PIN-verified).
     func deleteEntry(app: String, acct: String) async throws {
         let cleartext = Token2Codec.serializeDeleteEntry(appName: app, accountName: acct)
-        let pubkey = try await getEcdhPubkey()
-        let blob = try Token2Crypto.encryptPayload(devicePubXy: pubkey, cleartext: cleartext, iv: Token2Crypto.IV_WRITE_SEED)
-        _ = try await transmitChecked(apduExt(Cmd.writeSeed, blob))
+        _ = try await transmitChecked(apduExt(Cmd.writeSeed, try await sealWrite(cleartext)))
     }
 
     func enableTotp(_ enabled: Bool) async throws {
         _ = try await transmitChecked(apduExt(Cmd.enableTotp, Data([enabled ? 0x01 : 0x00])))
     }
+
+    // MARK: - OTP PIN (privacy protection, firmware R3.4+)
+
+    /// Parsed READ_OTP_PIN_FLAG head, plus the optional verify challenge.
+    struct PinFlag {
+        let algId: Int
+        let retriesLeft: Int
+        let pinLen: Int
+        let maxRetries: Int
+        /// (IV, EncRand), present only on the Lc=0x29 read.
+        let challenge: (iv: Data, encRand: Data)?
+        var isSet: Bool { pinLen > 0 }
+    }
+
+    /// The flag read is NOT a bare case-2 command: it is `header || lc || lc*0x00`
+    /// (the Lc byte followed by a zero-body placeholder), short-form Lc. A bodyless
+    /// read is rejected with the proprietary 6AF8.
+    private func readPinFlagAPDU(_ lc: UInt8) -> APDU {
+        let body = Data(repeating: 0x00, count: Int(lc))
+        return APDU(cla: Cmd.readOtpPinFlag[0], ins: Cmd.readOtpPinFlag[1],
+                    p1: Cmd.readOtpPinFlag[2], p2: Cmd.readOtpPinFlag[3],
+                    data: body, le: 0, forceExtended: false)
+    }
+
+    private func parsePinFlag(_ data: Data) -> PinFlag {
+        func at(_ i: Int) -> Int { i < data.count ? Int(data[data.startIndex + i]) : 0 }
+        let challenge: (Data, Data)? = data.count >= 41
+            ? (Data(data[data.startIndex+9  ..< data.startIndex+25]),
+               Data(data[data.startIndex+25 ..< data.startIndex+41]))
+            : nil
+        return PinFlag(algId: at(0), retriesLeft: at(1), pinLen: at(2), maxRetries: at(3),
+                       challenge: challenge)
+    }
+
+    /// PIN command with extended Lc (the reference build_apdu form).
+    private func pinAPDU(_ cmd: [UInt8], _ data: Data) -> APDU {
+        APDU(cla: cmd[0], ins: cmd[1], p1: cmd[2], p2: cmd[3], data: data, le: 0, forceExtended: true)
+    }
+
+    /// READ_OTP_PIN_FLAG status. Uses Lc=0x09 (the form the reference's working
+    /// trace uses) for a reliable full head; the short Lc=0x04 read can come back
+    /// truncated on some firmware, making a set PIN look unset.
+    func pinStatus() async throws -> PinFlag {
+        let r = try await transmitRaw(readPinFlagAPDU(PinFlagLc.prime))
+        try checkPin(r.sw)
+        return parsePinFlag(r.data)
+    }
+
+    /// Establish an authenticated ECDH session (returns nothing; keys held on self
+    /// only after verify). Sequence: a "prime" flag read (Lc=0x09) FIRST — skipping
+    /// it makes a later SET fail with 6985 — then READ_AGREEMENT_PUBKEY with the
+    /// host pubkey; response = devPub(64) || sig(132). The P-521 device signature is
+    /// NOT verified (matches the reference; confidentiality holds).
+    private func openPinSession() async throws -> Token2PinCrypto.SessionKeys {
+        let prime = try await transmitRaw(readPinFlagAPDU(PinFlagLc.prime))
+        try checkPin(prime.sw)
+
+        let hs = Token2PinCrypto.beginHandshake()
+        let r = try await transmitRaw(pinAPDU(Cmd.readAgreementPubkey, hs.hostPubXy))
+        try checkPin(r.sw)
+        guard r.data.count >= 64 else { throw KeyError.unexpectedStatus(r.sw) }
+        let devXy = Data(r.data.prefix(64))
+        return try hs.derive(deviceAgreementXy: devXy)
+    }
+
+    func setOtpPin(_ pin: Data) async throws {
+        let keys = try await openPinSession()
+        let data = try Token2PinCrypto.buildSetPinData(keys, pin: pin)
+        let r = try await transmitRaw(pinAPDU(Cmd.setOtpPin, data))
+        try checkPin(r.sw)
+    }
+
+    /// VERIFY_OTP_PIN — opens the read window for this connection and retains the
+    /// session keys so protected pages can be decrypted.
+    func verifyOtpPin(_ pin: Data) async throws {
+        let keys = try await openPinSession()
+        let flagResp = try await transmitRaw(readPinFlagAPDU(PinFlagLc.challenge))
+        try checkPin(flagResp.sw)
+        let flag = parsePinFlag(flagResp.data)
+        guard let ch = flag.challenge else { throw KeyError.unexpectedStatus(flagResp.sw) }
+        let rand = try Token2PinCrypto.sessionDecryptRaw(key: keys.enc, iv: ch.iv, ciphertext: ch.encRand)
+        guard rand.count == 16 else { throw KeyError.unexpectedStatus(flagResp.sw) }
+        let proof = try Token2PinCrypto.buildVerifyPinData(keys, pin: pin, rand: rand)
+        let r = try await transmitRaw(pinAPDU(Cmd.verifyOtpPin, proof))
+        try checkPin(r.sw)
+        pinSession = keys
+    }
+
+    /// CHANGE_OTP_PIN (empty newPin = remove). Requires the current PIN.
+    func changeOtpPin(current: Data, new: Data) async throws {
+        let keys = try await openPinSession()
+        let flagResp = try await transmitRaw(readPinFlagAPDU(PinFlagLc.challenge))
+        try checkPin(flagResp.sw)
+        let data = try Token2PinCrypto.buildChangePinData(keys, newPin: new, currentPin: current)
+        let r = try await transmitRaw(pinAPDU(Cmd.changeOtpPin, data))
+        try checkPin(r.sw)
+        pinSession = nil
+    }
+
+    func removeOtpPin(current: Data) async throws {
+        try await changeOtpPin(current: current, new: Data())
+    }
+
+    /// Close the device's read/write window: VERIFY header + single 0x00 body
+    /// (80 C5 05 06 01 00), short-form Lc. Drops our session keys too.
+    func lockOtpPin() async throws {
+        pinSession = nil
+        let apdu = APDU(cla: Cmd.verifyOtpPin[0], ins: Cmd.verifyOtpPin[1],
+                        p1: Cmd.verifyOtpPin[2], p2: Cmd.verifyOtpPin[3],
+                        data: Data([0x00]), le: 0, forceExtended: false)
+        _ = try? await transmitRaw(apdu)
+    }
+
+    /// Whether a verify window is currently held on this applet instance.
+    var isPinVerified: Bool { pinSession != nil }
 }

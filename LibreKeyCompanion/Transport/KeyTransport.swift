@@ -16,6 +16,15 @@ public enum KeyError: Error, LocalizedError {
     case oathPasswordRequired(deviceId: Data)
     /// A VALIDATE attempt was rejected by the key.
     case oathPasswordIncorrect(deviceId: Data)
+    // --- Token2 OTP PIN (privacy protection, firmware R3.4+) ---
+    /// The OTP store is PIN-protected and no verify window is open.
+    case otpPinNotVerified
+    /// The OTP PIN is locked out; the only recovery is erasing all OTP profiles.
+    case otpPinBlocked
+    /// The command isn't allowed in the current PIN state (e.g. SET when set).
+    case otpPinWrongState
+    /// This key's firmware doesn't support the OTP PIN feature (pre-R3.4).
+    case otpPinUnsupported(UInt16)
 
     public var errorDescription: String? {
         switch self {
@@ -39,6 +48,14 @@ public enum KeyError: Error, LocalizedError {
             return "This key's OATH accounts are protected by a password."
         case .oathPasswordIncorrect:
             return "The key rejected that OATH password."
+        case .otpPinNotVerified:
+            return "OTP PIN not verified or incorrect."
+        case .otpPinBlocked:
+            return "The OTP PIN is locked out. The only recovery is erasing all OTP profiles."
+        case .otpPinWrongState:
+            return "That command isn't allowed in the current PIN state."
+        case .otpPinUnsupported(let sw):
+            return String(format: "This key's firmware doesn't support the OTP PIN (0x%04X).", sw)
         }
     }
 }
