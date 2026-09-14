@@ -23,12 +23,14 @@ for third-party apps:
 | Transport | Android | iOS | Reason |
 |-----------|:-------:|:---:|--------|
 | NFC ISO7816 APDUs | ✅ | ✅ | CoreNFC `NFCISO7816Tag` exposes raw APDU exchange |
-| USB-C (CCID smart-card) | ✅ | ❌ | iOS gives apps no arbitrary USB/CCID access |
+| USB-C (CCID smart-card) | ✅ | 🟧 | Via TKSmartCard (external CCID reader / supported accessory); used by Token2 fingerprint unlock |
 | USB-C (CTAPHID for FIDO2) | ✅ | ❌ | No third-party CTAPHID/USB-HID access on iOS |
 
-So **all USB functionality is on hold for now**, and FIDO2 is limited to the CTAP2 *NFC
-APDU* binding (no CTAPHID). Fingerprint enrollment — which the original notes
-requires USB even on Android — is out not available.
+So **most USB functionality is on hold for now**, and FIDO2 is limited to the CTAP2
+*NFC APDU* binding (no CTAPHID). One exception: Token2 **fingerprint unlock** for
+OTP works over a CCID smart-card session (`TKSmartCard`) and is therefore
+**USB-only**. Fingerprint **enrollment** — which the original notes requires USB
+even on Android — is still not available.
 
 ### To run on a device
 1. A **Apple Developer account** (NFC entitlements required).
@@ -59,7 +61,7 @@ NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 | FIDO2 mgmt | ✅ Implemented (NFC) | Full management UI: getInfo, PIN retries, set/change PIN, alwaysUV toggle, list/delete passkeys. CBOR + PIN/UV v1/v2 crypto ported from `fido/ctap/`. Fingerprint enrollment omitted (needs held USB session) |
 | OpenPGP (read) | 🟧 Skeleton | Needs Application-Related-Data BER-TLV parser |
 | PIV (read) | 🟧 Skeleton | Needs DER/X.509 parser from `piv/` |
-| Token2 OTP | ✅ Implemented | Auto-detected on scan. Read + manual-entry form (issuer/account/secret/algorithm/period/digits/touch) with QR populating editable fields, plus write/delete. On firmware **R3.4+**, also set/change/remove the on-device **OTP PIN** (privacy protection) and unlock PIN-protected codes for view/add/delete. ECDH-P256/AES crypto + codec ported from `token2/`, validated against spec §10.1/§10.2; the PIN session crypto (HMAC-SHA256 ladder, AES-CBC verify/set/change) validated against the reference vectors in `Token2PinCryptoTests` |
+| Token2 OTP | ✅ Implemented | Auto-detected on scan. Read + manual-entry form (issuer/account/secret/algorithm/period/digits/touch) with QR populating editable fields, plus write/delete. On firmware **R3.4+**, also set/change/remove the on-device **OTP PIN** (privacy protection) and unlock PIN-protected codes for view/add/delete. **Fingerprint unlock** (Bio keys, **USB only**) lets a fingerprint touch unlock protected codes as an alternative to the PIN — for read, add, and delete — and can be enabled/disabled from the key menu. ECDH-P256/AES crypto + codec ported from `token2/`, validated against spec §10.1/§10.2; the PIN session crypto (HMAC-SHA256 ladder, AES-CBC verify/set/change) validated against the reference vectors in `Token2PinCryptoTests`, and the fingerprint EncConfig/capture-poll (§1.14/§1.20) in `Token2FingerprintTests` |
 
 Skeletons SELECT the correct AID and frame the right APDUs; the parsers/crypto
 marked `PORTING NOTE` must be ported and re-validated against the same spec
