@@ -126,6 +126,11 @@ struct OTPView: View {
                         Button("Set OTP PIN…")    { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .set) }
                         Button("Change OTP PIN…") { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .change) }
                         Button("Remove OTP PIN…", role: .destructive) { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .remove) }
+                        if session.otpFingerprintManageable {
+                            Divider()
+                            Button("Enable fingerprint unlock…")  { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .enableFingerprint) }
+                            Button("Disable fingerprint unlock…") { session.otpPinPrompt = KeySession.OtpPinPrompt(kind: .disableFingerprint) }
+                        }
                         if session.rememberedOtpPin != nil {
                             Divider()
                             Button("Forget remembered PIN") { session.forgetOtpPin() }

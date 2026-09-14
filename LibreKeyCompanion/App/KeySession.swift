@@ -27,11 +27,31 @@ final class KeySession: ObservableObject {
     @Published var otpUnlocked = false
     /// When non-nil, the OTP tab shows a PIN entry sheet for this purpose.
     @Published var otpPinPrompt: OtpPinPrompt?
+    /// This key can unlock OTP by fingerprint AND we're on USB (iOS gates the
+    /// fingerprint path to USB/CCID only — an NFC session can't hold the field
+    /// while the user touches the sensor and polls the capture). Drives whether
+    /// the unlock UI offers a "Use fingerprint" action.
+    @Published var otpFingerprintUnlockAvailable = false
+    /// The key has a fingerprint SENSOR and we're on USB, so fingerprint
+    /// protection can be turned on/off — even if it isn't enabled yet. Drives the
+    /// enable/disable menu (distinct from the unlock button, which needs the
+    /// feature actually usable now).
+    @Published var otpFingerprintManageable = false
+    /// Last-known "this key can do fingerprint unlock" signal, cached across the
+    /// short NFC/USB sessions. Set whenever a config/flag read proves capability.
+    /// The *button* also requires USB (see refreshFingerprintAvailability()).
+    private var keyFingerprintCapableCache = false
+    /// Last-known "this key has a fingerprint sensor" signal, cached similarly.
+    private var keyFingerprintSensorCache = false
     /// Remembered OTP PIN — in memory only, never persisted. Cleared on forget/lock.
     @Published private(set) var rememberedOtpPin: String?
     func forgetOtpPin() {
         rememberedOtpPin = nil
         otpUnlocked = false
+        otpFingerprintUnlockAvailable = false
+        otpFingerprintManageable = false
+        keyFingerprintCapableCache = false
+        keyFingerprintSensorCache = false
         credentials = []      // clear shown codes immediately
         statusMessage = "OTP PIN forgotten — unlock to view codes."
     }
@@ -39,7 +59,7 @@ final class KeySession: ObservableObject {
     /// What a pending OTP-PIN sheet is for.
     struct OtpPinPrompt: Identifiable {
         let id = UUID()
-        enum Kind { case unlock, set, change, remove }
+        enum Kind { case unlock, set, change, remove, enableFingerprint, disableFingerprint }
         let kind: Kind
     }
 
@@ -329,6 +349,8 @@ final class KeySession: ObservableObject {
             else if case .otpPinNotVerified = e {
                 // Protected key, no/again-wrong PIN: show the unlock sheet.
                 otpPinProtected = true; otpUnlocked = false
+                otpFingerprintUnlockAvailable = (transportMode == .usb) && keyFingerprintCapableCache
+                otpFingerprintManageable = (transportMode == .usb) && keyFingerprintSensorCache
                 statusMessage = "These codes are PIN-protected. Enter your OTP PIN to unlock."
                 otpPinPrompt = OtpPinPrompt(kind: .unlock)
             }
@@ -368,11 +390,18 @@ final class KeySession: ObservableObject {
         otpPinProtected = isProtected
 
         if isProtected {
+            // Learn whether fingerprint unlock is offerable: the key must support
+            // it (or already have it enabled) AND we must be on USB (iOS gates the
+            // fingerprint poll to CCID). Best effort — failure just hides the option.
+            await refreshFingerprintAvailability(applet)
+
             guard let pin = rememberedOtpPin else {
                 // Protected but we hold no PIN — prompt to unlock, read nothing yet.
                 otpUnlocked = false
                 credentials = []
-                statusMessage = "These codes are PIN-protected. Enter your OTP PIN to unlock."
+                statusMessage = otpFingerprintUnlockAvailable
+                    ? "These codes are protected. Touch the fingerprint sensor, or enter your OTP PIN."
+                    : "These codes are PIN-protected. Enter your OTP PIN to unlock."
                 otpPinPrompt = OtpPinPrompt(kind: .unlock)
                 return
             }
@@ -431,6 +460,8 @@ final class KeySession: ObservableObject {
             rememberedOtpPin = nil; otpUnlocked = false
             let left = (try? await otpReadRetries()) ?? nil
             errorMessage = left.map { "Wrong OTP PIN — \($0) of 100 attempts left." } ?? "Wrong OTP PIN."
+            otpFingerprintUnlockAvailable = (transportMode == .usb) && keyFingerprintCapableCache
+            otpFingerprintManageable = (transportMode == .usb) && keyFingerprintSensorCache
             otpPinPrompt = OtpPinPrompt(kind: .unlock)
         } catch {
             rememberedOtpPin = nil
@@ -441,6 +472,70 @@ final class KeySession: ObservableObject {
 
     private func otpReadRetries() async throws -> Int? {
         try await withToken2(alert: "Hold your key near the phone.") { try await $0.pinStatus().retriesLeft }
+    }
+
+    /// Probe capability against a live applet, cache it, and recompute whether the
+    /// fingerprint-unlock button should show (capable AND on USB). Call this before
+    /// raising an unlock prompt from any path that has an applet in hand.
+    private func refreshFingerprintAvailability(_ applet: Token2OTPApplet) async {
+        // One config read serves both signals: sensor-present (manage) and
+        // protection-supported/enabled (unlock).
+        if let info = try? await applet.readConfig() {
+            if info.fingerprintPresent { keyFingerprintSensorCache = true }
+            if info.otpFingerprintProtectSupported && info.fingerprintPresent {
+                keyFingerprintCapableCache = true
+            }
+        }
+        if (try? await applet.pinStatus())?.fpEnable == true {
+            keyFingerprintCapableCache = true          // enabled ⇒ provably capable
+            keyFingerprintSensorCache = true
+        }
+        let onUSB = (transportMode == .usb)
+        otpFingerprintUnlockAvailable = onUSB && keyFingerprintCapableCache
+        otpFingerprintManageable      = onUSB && keyFingerprintSensorCache
+    }
+
+    /// Unlock by fingerprint (USB only): the key opens the read window on a touch,
+    /// then we enumerate over the same session — no PIN typed.
+    func otpUnlockWithFingerprint() async {
+        guard transportMode == .usb else {
+            errorMessage = "Fingerprint unlock needs the key plugged in over USB."
+            return
+        }
+        isScanning = true; errorMessage = nil
+        statusMessage = "Touch the fingerprint sensor on the key…"
+        do {
+            try await withToken2(alert: "Touch the fingerprint sensor on the key to unlock codes.") { applet in
+                try await applet.verifyOtpFingerprint()
+                self.otpPinProtected = true; self.otpUnlocked = true
+                let now = Int64(Date().timeIntervalSince1970)
+                let entries = try await applet.enumerate(timestampSeconds: now)
+                self.credentials = self.liveCodes(from: entries, now: now)
+                self.statusMessage = "Read \(self.credentials.count) Token2 entry(ies)."
+            }
+        } catch { mapOtpPinError(error) }
+        isScanning = false
+    }
+
+    /// Enable/disable fingerprint-protected OTP (§1.20). Rides on VERIFY_OTP_PIN,
+    /// so it needs the current PIN. USB only (fingerprint enrolment/verification
+    /// path). On enable with no enrolled finger, the applet returns a clear error.
+    func otpSetFingerprintProtection(pin: String, enable: Bool) async {
+        guard transportMode == .usb else {
+            errorMessage = "Changing fingerprint protection needs the key plugged in over USB."
+            return
+        }
+        isScanning = true; errorMessage = nil
+        do {
+            try await withToken2(alert: "Hold your key to change fingerprint protection.") { applet in
+                try await applet.verifyOtpPin(Data(pin.utf8), fpEnable: enable)
+                try? await applet.lockOtpPin()   // don't leave the window open
+            }
+            statusMessage = enable
+                ? "Fingerprint protection enabled — a fingerprint can now unlock OTP codes."
+                : "Fingerprint protection disabled."
+        } catch { mapOtpPinError(error) }
+        isScanning = false
     }
 
     func otpSetPin(_ pin: String) async {
@@ -581,26 +676,43 @@ final class KeySession: ObservableObject {
                 catch { isProtected = false }
 
                 if isProtected {
-                    guard let pin = rememberedOtpPin else {
-                        // No PIN held — can't write to a locked store. Ask the user
-                        // to unlock first, then retry the add.
+                    // Open the verify window on THIS session before the write.
+                    // Priority: a remembered PIN (silent), else a fingerprint touch
+                    // if the key supports it on USB, else ask the user to unlock.
+                    await refreshFingerprintAvailability(token2)
+                    if let pin = rememberedOtpPin {
+                        try await token2.verifyOtpPin(Data(pin.utf8))
+                    } else if otpFingerprintUnlockAvailable {
+                        // Fingerprint-only: authorize the write with a touch, in
+                        // this same session (matches the read path).
+                        statusMessage = "Touch the fingerprint sensor on the key…"
+                        try await token2.verifyOtpFingerprint()
+                    } else {
+                        // No PIN held and no fingerprint path — ask to unlock first.
                         otpPinProtected = true; otpUnlocked = false
                         isScanning = false
                         errorMessage = "This key is PIN-protected. Unlock it first, then add the entry."
                         otpPinPrompt = OtpPinPrompt(kind: .unlock)
                         return
                     }
-                    try await token2.verifyOtpPin(Data(pin.utf8))
                 }
                 try await token2.writeEntry(entry)
+                // Refresh in the SAME session: the verify window is still open
+                // (PIN/fingerprint just authorized the write), so re-enumerate and
+                // show the new entry immediately instead of leaving a stale list.
+                let now = Int64(Date().timeIntervalSince1970)
+                let entries = try await token2.enumerate(timestampSeconds: now)
+                credentials = liveCodes(from: entries, now: now)
+                if isProtected { otpPinProtected = true; otpUnlocked = true }
                 statusMessage = "Added \(entry.appName.isEmpty ? entry.accountName : entry.appName)."
             } else {
                 detectedKind = .oath
                 guard let uri = fields.buildOtpauthUri(), let parsed = OTPAuthURI(uri) else {
                     throw KeyError.parsing("Need an account and a valid Base32 secret.")
                 }
-                let applet = try await openOATH(transport: transport)
-                try await applet.put(parsed, requireTouch: fields.requireTouch)
+                try await openOATH(transport: transport).put(parsed, requireTouch: fields.requireTouch)
+                // Refresh from the same session so the new credential shows at once.
+                try await readOATH(transport: transport)
                 statusMessage = "Added \(parsed.label)."
             }
         } catch let e as KeyError {
@@ -642,10 +754,13 @@ final class KeySession: ObservableObject {
                     accountName: parsed.accountForToken2,
                     seed: parsed.secret)
                 try await token2.writeEntry(entry)
+                let now = Int64(Date().timeIntervalSince1970)
+                let entries = try await token2.enumerate(timestampSeconds: now)
+                credentials = liveCodes(from: entries, now: now)
             } else {
                 detectedKind = .oath
-                let applet = try await openOATH(transport: transport)
-                try await applet.put(parsed, requireTouch: requireTouch)
+                try await openOATH(transport: transport).put(parsed, requireTouch: requireTouch)
+                try await readOATH(transport: transport)
             }
             statusMessage = "Added \(parsed.label)."
             transport.invalidate(message: "Added.")
@@ -682,14 +797,19 @@ final class KeySession: ObservableObject {
                 catch { isProtected = false }
 
                 if isProtected {
-                    guard let pin = rememberedOtpPin else {
+                    await refreshFingerprintAvailability(token2)
+                    if let pin = rememberedOtpPin {
+                        try await token2.verifyOtpPin(Data(pin.utf8))
+                    } else if otpFingerprintUnlockAvailable {
+                        statusMessage = "Touch the fingerprint sensor on the key…"
+                        try await token2.verifyOtpFingerprint()
+                    } else {
                         otpPinProtected = true; otpUnlocked = false
                         isScanning = false
                         errorMessage = "This key is PIN-protected. Unlock it first, then delete."
                         otpPinPrompt = OtpPinPrompt(kind: .unlock)
                         return
                     }
-                    try await token2.verifyOtpPin(Data(pin.utf8))
                 }
                 try await token2.deleteEntry(app: app, acct: acct)
             } else {
