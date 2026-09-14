@@ -25,6 +25,10 @@ public enum KeyError: Error, LocalizedError {
     case otpPinWrongState
     /// This key's firmware doesn't support the OTP PIN feature (pre-R3.4).
     case otpPinUnsupported(UInt16)
+    /// §1.20 fingerprint-protected OTP — the on-key fingerprint check didn't pass.
+    case otpFingerprintNotVerified(UInt16)
+    /// Enabling FP protection was refused because no fingerprint is enrolled (0x6984).
+    case otpNoFingerprintEnrolled
 
     public var errorDescription: String? {
         switch self {
@@ -56,6 +60,10 @@ public enum KeyError: Error, LocalizedError {
             return "That command isn't allowed in the current PIN state."
         case .otpPinUnsupported(let sw):
             return String(format: "This key's firmware doesn't support the OTP PIN (0x%04X).", sw)
+        case .otpFingerprintNotVerified:
+            return "Fingerprint not verified. Touch the key's sensor with an enrolled finger and try again."
+        case .otpNoFingerprintEnrolled:
+            return "No fingerprint is enrolled on this key. Enroll one in the key's FIDO2 fingerprint setup first."
         }
     }
 }

@@ -158,13 +158,27 @@ enum Token2PinCrypto {
     ///   inner = AES-nopad(SHA256(pin), SHA256(rand)[:16], rand)
     ///   outer = AES-nopad(EncKey, randomIV, inner);  data = IV || outer
     static func buildVerifyPinData(_ keys: SessionKeys, pin: Data, rand: Data) throws -> Data {
+        try buildVerifyPinData(keys, pin: pin, rand: rand, fpEnable: nil)
+    }
+
+    /// VERIFY_OTP_PIN with the optional trailing `EncConfig` block (manual §1.14):
+    ///   Config    = pkcs7pad16( FpEnable )              // FpEnable = 0x00 / 0x01
+    ///   EncConfig = AES-nopad(EncKey, IV, Config)       // SAME IV as the outer block
+    ///   data      = IV || outer || EncConfig
+    /// When present, the applet sets the fingerprint-protected-OTP flag while
+    /// verifying the PIN (§1.20). `fpEnable == nil` omits the block (plain verify).
+    static func buildVerifyPinData(_ keys: SessionKeys, pin: Data, rand: Data,
+                                   fpEnable: Bool?) throws -> Data {
         guard rand.count == 16 else { throw KeyError.parsing("rand must be 16 bytes") }
         let pinHash = sha256(pin)                      // 32B → AES-256 key
         let iv2 = sha256(rand).prefix(16)
         let inner = try aesNoPad(kCCEncrypt, key: pinHash, iv: Data(iv2), data: rand)
         let iv = randomIV()
         let outer = try aesNoPad(kCCEncrypt, key: keys.enc, iv: iv, data: inner)
-        return iv + outer
+        guard let fp = fpEnable else { return iv + outer }
+        let config = pkcs7Pad16(Data([fp ? 0x01 : 0x00]))
+        let encConfig = try aesNoPad(kCCEncrypt, key: keys.enc, iv: iv, data: config)
+        return iv + outer + encConfig
     }
 
     /// CHANGE_OTP_PIN / remove (empty newPin) data:

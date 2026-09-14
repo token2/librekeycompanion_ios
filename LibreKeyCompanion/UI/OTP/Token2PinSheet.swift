@@ -24,6 +24,8 @@ struct Token2PinSheet: View {
         case .set:    return "Set OTP PIN"
         case .change: return "Change OTP PIN"
         case .remove: return "Remove OTP PIN"
+        case .enableFingerprint:  return "Enable Fingerprint Unlock"
+        case .disableFingerprint: return "Disable Fingerprint Unlock"
         }
     }
 
@@ -47,7 +49,34 @@ struct Token2PinSheet: View {
                             .keyboardType(keyboardType)
                     }
                 }
+                if kind == .enableFingerprint || kind == .disableFingerprint {
+                    Section {
+                        SecureField("OTP PIN", text: $newPin)
+                            .keyboardType(keyboardType)
+                            .textContentType(.password)
+                    } header: {
+                        Text("OTP PIN")
+                    } footer: {
+                        Text(kind == .enableFingerprint
+                            ? "Enrol a fingerprint in the key's FIDO2 setup first. Enter your OTP PIN to turn on fingerprint unlock."
+                            : "Enter your OTP PIN to turn off fingerprint unlock.")
+                    }
+                }
                 if kind == .unlock {
+                    if session.otpFingerprintUnlockAvailable {
+                        Section {
+                            Button {
+                                dismiss()
+                                Task { await session.otpUnlockWithFingerprint() }
+                            } label: {
+                                Label("Unlock with fingerprint", systemImage: "touchid")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .disabled(session.isScanning)
+                        } footer: {
+                            Text("Touch the sensor on the plugged-in key, or enter the PIN below — either one unlocks.")
+                        }
+                    }
                     Section("OTP PIN") {
                         SecureField("OTP PIN", text: $newPin)
                             .keyboardType(keyboardType)
@@ -94,6 +123,8 @@ struct Token2PinSheet: View {
         case .set:    return "Set"
         case .change: return "Change"
         case .remove: return "Remove"
+        case .enableFingerprint:  return "Enable"
+        case .disableFingerprint: return "Disable"
         }
     }
 
@@ -123,6 +154,11 @@ struct Token2PinSheet: View {
             let cur = current
             dismiss()
             Task { await session.otpRemovePin(current: cur) }
+        case .enableFingerprint, .disableFingerprint:
+            guard !newPin.isEmpty else { validationError = "Enter your OTP PIN."; return }
+            let pin = newPin, enable = (kind == .enableFingerprint)
+            dismiss()
+            Task { await session.otpSetFingerprintProtection(pin: pin, enable: enable) }
         }
     }
 }

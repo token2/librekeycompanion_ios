@@ -31,7 +31,11 @@ final class Token2OTPApplet {
         static let verifyOtpPin: [UInt8]         = [0x80, 0xC5, 0x05, 0x06]
         static let changeOtpPin: [UInt8]         = [0x80, 0xC5, 0x05, 0x08]
         static let readAgreementPubkey: [UInt8]  = [0x80, 0xC5, 0x05, 0x09]
+        /// §1.20 fingerprint capture-poll: 80 11 00 00 00.
+        static let fingerprintPoll: [UInt8]      = [0x80, 0x11, 0x00, 0x00, 0x00]
     }
+    /// Bounded fingerprint capture-poll budget (each poll is one USB round-trip).
+    private static let fpMaxPolls = 600
     private enum PinFlagLc {
         static let base: UInt8 = 0x04       // status only
         static let challenge: UInt8 = 0x29  // status + verify challenge (IV||EncRand)
@@ -51,8 +55,17 @@ final class Token2OTPApplet {
         let fingerprintPresent: Bool
         let fidoHasPin: Bool
         let buttonHotpConfigured: Bool
+        /// §1.11 ext bit 8: the key can require a fingerprint for OTP.
+        let otpFingerprintProtectSupported: Bool
+        /// §1.11 ext bit 7: OTP generation currently requires a fingerprint.
+        let otpFingerprintRequired: Bool
         let fidoVersion: String
     }
+
+    /// Last-seen fingerprint-protection flag for this connection, refreshed by
+    /// every PIN-flag read. Lets the coordinator know, after verifyOtpPin, whether
+    /// fingerprint-protected OTP is on for this key.
+    private(set) var fingerprintProtectionEnabled: Bool?
 
     func select() async throws {
         try await transport.selectApplet(aid: Token2OTPApplet.MGMT_AID)
@@ -132,6 +145,10 @@ final class Token2OTPApplet {
             fingerprintPresent: cfg & 0x08 != 0,
             fidoHasPin: cfg & 0x02 != 0,
             buttonHotpConfigured: cfg & 0x80 != 0,
+            // ext byte (r[9]): bit7 = fingerprint currently required for OTP,
+            // bit8 = fingerprint-protected OTP supported (§1.11 item 5).
+            otpFingerprintProtectSupported: ext & 0x80 != 0,
+            otpFingerprintRequired: ext & 0x40 != 0,
             fidoVersion: fido)
     }
 
@@ -222,6 +239,8 @@ final class Token2OTPApplet {
         let retriesLeft: Int
         let pinLen: Int
         let maxRetries: Int
+        /// §1.12 byte 4 `FpEnable`: fingerprint-protected OTP is on. Nil if the read was too short.
+        let fpEnable: Bool?
         /// (IV, EncRand), present only on the Lc=0x29 read.
         let challenge: (iv: Data, encRand: Data)?
         var isSet: Bool { pinLen > 0 }
@@ -243,8 +262,10 @@ final class Token2OTPApplet {
             ? (Data(data[data.startIndex+9  ..< data.startIndex+25]),
                Data(data[data.startIndex+25 ..< data.startIndex+41]))
             : nil
+        let fp: Bool? = data.count >= 5 ? (at(4) == 0x01) : nil
+        if let fp { fingerprintProtectionEnabled = fp }
         return PinFlag(algId: at(0), retriesLeft: at(1), pinLen: at(2), maxRetries: at(3),
-                       challenge: challenge)
+                       fpEnable: fp, challenge: challenge)
     }
 
     /// PIN command with extended Lc (the reference build_apdu form).
@@ -288,6 +309,13 @@ final class Token2OTPApplet {
     /// VERIFY_OTP_PIN — opens the read window for this connection and retains the
     /// session keys so protected pages can be decrypted.
     func verifyOtpPin(_ pin: Data) async throws {
+        try await verifyOtpPin(pin, fpEnable: nil)
+    }
+
+    /// VERIFY_OTP_PIN — opens the read window for this connection.
+    /// `fpEnable`, when non-nil, also sets/clears the fingerprint-protected-OTP
+    /// flag in the same command via the optional EncConfig block (§1.14 / §1.20).
+    func verifyOtpPin(_ pin: Data, fpEnable: Bool?) async throws {
         let keys = try await openPinSession()
         let flagResp = try await transmitRaw(readPinFlagAPDU(PinFlagLc.challenge))
         try checkPin(flagResp.sw)
@@ -295,10 +323,59 @@ final class Token2OTPApplet {
         guard let ch = flag.challenge else { throw KeyError.unexpectedStatus(flagResp.sw) }
         let rand = try Token2PinCrypto.sessionDecryptRaw(key: keys.enc, iv: ch.iv, ciphertext: ch.encRand)
         guard rand.count == 16 else { throw KeyError.unexpectedStatus(flagResp.sw) }
-        let proof = try Token2PinCrypto.buildVerifyPinData(keys, pin: pin, rand: rand)
+        let proof = try Token2PinCrypto.buildVerifyPinData(keys, pin: pin, rand: rand, fpEnable: fpEnable)
         let r = try await transmitRaw(pinAPDU(Cmd.verifyOtpPin, proof))
+        // Enabling FP protection with no enrolled fingerprint is refused with
+        // 0x6984 ("reference data not usable") — surface a clear "enroll first".
+        if fpEnable == true, r.sw == 0x6984 { throw KeyError.otpNoFingerprintEnrolled }
         try checkPin(r.sw)
+        if let fp = fpEnable { fingerprintProtectionEnabled = fp }
         pinSession = keys
+    }
+
+    /// §1.20 fingerprint verification (USB/CCID only on iOS). Starts the capture
+    /// with `80 C5 05 06 01 01`; the device answers `0x9100` ("capture in
+    /// progress") and the host polls `80 11 00 00 00` until `0x9000` (touch
+    /// matched) or an error. The touch only authorizes — codes still come back
+    /// over the ECDH session, so the session is established first and retained.
+    func verifyOtpFingerprint() async throws {
+        let keys = try await openPinSession()
+
+        let startAPDU = APDU(cla: Cmd.verifyOtpPin[0], ins: Cmd.verifyOtpPin[1],
+                             p1: Cmd.verifyOtpPin[2], p2: Cmd.verifyOtpPin[3],
+                             data: Data([0x01]), le: 0, forceExtended: false)
+        // 80 11 00 00 00 — case-2 (no Lc, Le=0x00). le:256 makes the encoder emit
+        // the single trailing 0x00 (short-form Le for 256).
+        let pollAPDU = APDU(cla: Cmd.fingerprintPoll[0], ins: Cmd.fingerprintPoll[1],
+                            p1: Cmd.fingerprintPoll[2], p2: Cmd.fingerprintPoll[3],
+                            data: Data(), le: 256, forceExtended: false)
+
+        let terminal = try await pollFingerprintCapture(
+            start: { try await self.transmitRaw(startAPDU).sw },
+            poll:  { try await self.transmitRaw(pollAPDU).sw })
+        switch terminal {
+        case 0x9000: break                                  // captured — window open
+        case 0x6FFA: throw KeyError.otpFingerprintNotVerified(terminal)  // failed/timeout
+        case 0x6A86, 0x6AF8: throw KeyError.otpPinUnsupported(terminal)
+        default: try checkPin(terminal)                     // 6982 = FP not enabled, etc.
+        }
+        pinSession = keys
+    }
+
+    /// Pure fingerprint capture-poll loop (§1.20 / keyroost reference): send the
+    /// start APDU, then poll while the device answers 0x9100 until a terminal SW.
+    /// Bounded by `fpMaxPolls`. Some replay traces answer 0x9000 to the start
+    /// APDU directly, in which case no poll happens. Returns the terminal SW.
+    func pollFingerprintCapture(start: () async throws -> UInt16,
+                                poll: () async throws -> UInt16) async rethrows -> UInt16 {
+        var sw = try await start()
+        var polls = 0
+        while sw == 0x9100 {
+            if polls >= Token2OTPApplet.fpMaxPolls { return 0x6FFA }   // treat as timeout
+            polls += 1
+            sw = try await poll()
+        }
+        return sw
     }
 
     /// CHANGE_OTP_PIN (empty newPin = remove). Requires the current PIN.
