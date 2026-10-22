@@ -29,31 +29,23 @@ struct Token2PinSheet: View {
         }
     }
 
-    private var keyboardType: UIKeyboardType { alphaKeypad ? .asciiCapable : .numberPad }
-
     var body: some View {
         NavigationStack {
             Form {
                 if kind == .change || kind == .remove {
                     Section("Current PIN") {
-                        SecureField("Current PIN", text: $current)
-                            .keyboardType(keyboardType)
-                            .textContentType(.password)
+                        PinTextField(placeholder: "Current PIN", text: $current, alphanumeric: alphaKeypad, autoFocus: true)
                     }
                 }
                 if kind == .set || kind == .change {
                     Section(kind == .set ? "New PIN" : "New PIN") {
-                        SecureField("New PIN", text: $newPin)
-                            .keyboardType(keyboardType)
-                        SecureField("Confirm new PIN", text: $confirm)
-                            .keyboardType(keyboardType)
+                        PinTextField(placeholder: "New PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: kind == .set)
+                        PinTextField(placeholder: "Confirm new PIN", text: $confirm, alphanumeric: alphaKeypad)
                     }
                 }
                 if kind == .enableFingerprint || kind == .disableFingerprint {
                     Section {
-                        SecureField("OTP PIN", text: $newPin)
-                            .keyboardType(keyboardType)
-                            .textContentType(.password)
+                        PinTextField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: true)
                     } header: {
                         Text("OTP PIN")
                     } footer: {
@@ -78,9 +70,10 @@ struct Token2PinSheet: View {
                         }
                     }
                     Section("OTP PIN") {
-                        SecureField("OTP PIN", text: $newPin)
-                            .keyboardType(keyboardType)
-                            .textContentType(.password)
+                        // Don't grab focus when fingerprint unlock is on offer:
+                        // the keyboard would cover that button.
+                        PinTextField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad,
+                                     autoFocus: !session.otpFingerprintUnlockAvailable)
                     }
                 }
 

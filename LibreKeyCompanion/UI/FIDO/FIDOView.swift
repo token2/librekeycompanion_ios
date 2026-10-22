@@ -203,24 +203,12 @@ struct PinField: View {
     let placeholder: String
     @Binding var text: String
     @Binding var alphanumeric: Bool
-
-    @FocusState private var focused: Bool
+    /// Focus this field and raise the keyboard when the sheet appears.
+    var autoFocus: Bool = false
 
     var body: some View {
-        SecureField(placeholder, text: $text)
-            .keyboardType(alphanumeric ? .default : .numberPad)
-            .textContentType(.password)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-            .focused($focused)
-            // Changing the identity forces SwiftUI to rebuild the field so the new
-            // keyboard type is applied immediately (a live `.keyboardType` change
-            // is otherwise ignored while the keyboard is already on screen). The
-            // text is preserved by the binding; we re-focus to keep the keyboard up.
-            .id(alphanumeric)
-            .onChange(of: alphanumeric) { _ in
-                focused = true
-            }
+        // UIKit-backed: switches keypads in place and reliably shows the keyboard.
+        PinTextField(placeholder: placeholder, text: $text, alphanumeric: alphanumeric, autoFocus: autoFocus)
     }
 }
 
@@ -247,11 +235,11 @@ private struct PinSheet: View {
             Form {
                 if needsOld {
                     Section("Current PIN") {
-                        PinField(placeholder: "Current PIN", text: $oldPin, alphanumeric: $alphanumeric)
+                        PinField(placeholder: "Current PIN", text: $oldPin, alphanumeric: $alphanumeric, autoFocus: true)
                     }
                 }
                 Section("New PIN") {
-                    PinField(placeholder: "New PIN (4–63 chars)", text: $newPin, alphanumeric: $alphanumeric)
+                    PinField(placeholder: "New PIN (4–63 chars)", text: $newPin, alphanumeric: $alphanumeric, autoFocus: !needsOld)
                     PinField(placeholder: "Confirm new PIN", text: $confirmPin, alphanumeric: $alphanumeric)
                 }
                 if !newPin.isEmpty && newPin != confirmPin {
@@ -289,7 +277,7 @@ struct SinglePinSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section { PinField(placeholder: "PIN", text: $pin, alphanumeric: $alphanumeric) }
+                Section { PinField(placeholder: "PIN", text: $pin, alphanumeric: $alphanumeric, autoFocus: true) }
                 Section {
                     Toggle("Letters & symbols", isOn: $alphanumeric)
                     Toggle("Remember PIN this session", isOn: $remember)
@@ -337,7 +325,7 @@ private struct MinPinSheet: View {
                     Text("The minimum can only be raised. Lowering it again requires a FIDO2 reset. If the current PIN is shorter, the key will ask for a PIN change.")
                 }
                 Section("Current PIN") {
-                    PinField(placeholder: "PIN", text: $pin, alphanumeric: $pinAlphanumeric)
+                    PinField(placeholder: "PIN", text: $pin, alphanumeric: $pinAlphanumeric, autoFocus: true)
                 }
                 Section {
                     Toggle("Letters & symbols", isOn: $pinAlphanumeric)

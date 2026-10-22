@@ -190,20 +190,12 @@ private struct DeletePinSheet: View {
     @State private var pin = ""
     @AppStorage("pinKeyboardAlphanumeric") private var alphanumeric = false
     @State private var remember = false
-    @FocusState private var focused: Bool
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Confirm with PIN") {
-                    SecureField("PIN", text: $pin)
-                        .keyboardType(alphanumeric ? .default : .numberPad)
-                        .textContentType(.password)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .focused($focused)
-                        .id(alphanumeric)
-                        .onChange(of: alphanumeric) { _ in focused = true }
+                    PinTextField(placeholder: "PIN", text: $pin, alphanumeric: alphanumeric, autoFocus: true)
                 }
                 Section {
                     Toggle("Letters & symbols", isOn: $alphanumeric)

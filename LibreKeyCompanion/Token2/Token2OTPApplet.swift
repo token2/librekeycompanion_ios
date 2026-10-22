@@ -22,6 +22,7 @@ final class Token2OTPApplet {
         static let getEcdhPubkey: [UInt8] = [0x80, 0xC5, 0x01, 0x00]
         static let readConfig: [UInt8]    = [0x80, 0xC5, 0x02, 0x00]
         static let enableTotp: [UInt8]    = [0x80, 0xC5, 0x02, 0x05]
+        static let setDeviceType: [UInt8] = [0x80, 0xC5, 0x02, 0x01]
         static let enumCodes: [UInt8]     = [0x80, 0xC5, 0x05, 0x00]
         static let enumContinue: [UInt8]  = [0x80, 0xC5, 0x05, 0x01]
         static let writeSeed: [UInt8]     = [0x80, 0xC5, 0x05, 0x02]
@@ -60,6 +61,35 @@ final class Token2OTPApplet {
         /// §1.11 ext bit 7: OTP generation currently requires a fingerprint.
         let otpFingerprintRequired: Bool
         let fidoVersion: String
+        /// §6.9 byte 0: USB interfaces (channels) currently turned off. Nil when
+        /// the key returned no config bytes at all.
+        let channels: Channels?
+    }
+
+    /// The key's three USB interfaces ("channels"). NFC isn't affected.
+    struct Channels: Equatable {
+        var fido: Bool        // FIDO (CTAPHID) — browsers, passkeys
+        var hidHotp: Bool     // keyboard-HID — types HOTP codes on a button touch
+        var ccid: Bool        // smart card — OTP/PIV/OpenPGP and this app over USB
+        var enabledCount: Int { [fido, hidHotp, ccid].filter { $0 }.count }
+    }
+
+    /// §6.8 SET_DEVICE_TYPE, by which channels stay ON. Refuses anything that
+    /// leaves fewer than two enabled (one alone can strand you if that interface
+    /// isn't reachable from where you are; none bricks the key). The key restarts
+    /// to apply, so over USB the response may never arrive.
+    func setChannels(_ c: Channels) async throws {
+        guard c.enabledCount >= 2 else {
+            throw KeyError.parsing("At least two channels must stay enabled.")
+        }
+        var disable: UInt8 = 0
+        if !c.fido { disable |= 0x01 }
+        if !c.hidHotp { disable |= 0x02 }
+        if !c.ccid { disable |= 0x04 }
+        precondition(disable & 0x07 != 0x07)
+        // Short-form Lc (01 <mask>): contact/T=0 CCID rejects the extended form.
+        let cmd = Cmd.setDeviceType
+        _ = try await transmitChecked(APDU(cla: cmd[0], ins: cmd[1], p1: cmd[2], p2: cmd[3], data: Data([disable]), le: 0))
     }
 
     /// Last-seen fingerprint-protection flag for this connection, refreshed by
@@ -133,6 +163,10 @@ final class Token2OTPApplet {
     func readConfig(numBytes: Int = 10) async throws -> DeviceInfo {
         let n = UInt8(min(max(numBytes, 10), 64))
         let resp = try await transmitChecked(apduExt(Cmd.readConfig, Data([n])))
+        let channels: Channels? = resp.isEmpty ? nil : {
+            let b = resp[resp.startIndex]
+            return Channels(fido: b & 0x01 == 0, hidHotp: b & 0x02 == 0, ccid: b & 0x04 == 0)
+        }()
         var r = [UInt8](resp)
         if r.count < 10 { r += [UInt8](repeating: 0, count: 10 - r.count) }
         let cfg = Int(r[1]); let ext = Int(r[9])
@@ -149,7 +183,8 @@ final class Token2OTPApplet {
             // bit8 = fingerprint-protected OTP supported (§1.11 item 5).
             otpFingerprintProtectSupported: ext & 0x80 != 0,
             otpFingerprintRequired: ext & 0x40 != 0,
-            fidoVersion: fido)
+            fidoVersion: fido,
+            channels: channels)
     }
 
     func getEcdhPubkey() async throws -> Data {

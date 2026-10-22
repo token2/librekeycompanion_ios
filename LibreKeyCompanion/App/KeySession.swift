@@ -348,6 +348,9 @@ final class KeySession: ObservableObject {
         fingerprints = []
         fidoOverUSB = false
         fidoSupportsAlphaMinPin = false
+        token2Channels = nil
+        channelsMessage = nil
+        channelsError = nil
     }
 
     struct LiveCode: Identifiable {
@@ -1165,5 +1168,76 @@ final class KeySession: ObservableObject {
         p.remaining = s.remaining
         p.lastStatus = Ctap2Client.sampleStatusText(s.lastStatus)
         enrollProgress = p
+    }
+
+    // MARK: - Token2 USB channels (FIDO / HID-HOTP / CCID)
+
+    @Published var token2Channels: Token2OTPApplet.Channels?
+    @Published var channelsBusy = false
+    @Published var channelsMessage: String?
+    @Published var channelsError: String?
+
+    /// Read which USB channels are on (READ_CONFIG byte 0). Works over NFC or USB.
+    func readChannels() async {
+        guard !channelsBusy else { return }
+        channelsBusy = true; channelsError = nil; channelsMessage = nil
+        defer { channelsBusy = false }
+        do {
+            let info = try await withToken2(alert: "Hold your key near the phone to read its USB channels.") {
+                try await $0.readConfig()
+            }
+            guard let c = info.channels else {
+                token2Channels = nil
+                channelsError = "The key didn't report its channel settings."
+                return
+            }
+            token2Channels = c
+        } catch let e as KeyError {
+            if case .userCancelled = e {} else { channelsError = e.errorDescription }
+        } catch {
+            channelsError = error.localizedDescription
+        }
+    }
+
+    /// Apply channel settings. The key restarts to apply them; over USB that cuts
+    /// the connection, so a lost response after the command was sent is expected.
+    func applyChannels(_ c: Token2OTPApplet.Channels) async {
+        guard !channelsBusy else { return }
+        channelsBusy = true; channelsError = nil; channelsMessage = nil
+        defer { channelsBusy = false }
+        let overUSB = transportMode == .usb && CCIDTransport.isAvailable
+        var sent = false
+        do {
+            try await withToken2(alert: "Hold your key near the phone to change its USB channels.") { applet in
+                // A PIN-protected key may want the OTP verify window open first.
+                if let pin = rememberedOtpPin { try? await applet.verifyOtpPin(Data(pin.utf8)) }
+                sent = true
+                try await applet.setChannels(c)
+            }
+            token2Channels = c
+            channelsMessage = overUSB
+                ? "Saved. The key restarts to apply it — it will reconnect in a moment."
+                : "Saved. The change takes effect the next time the key is plugged in."
+        } catch KeyError.otpPinNotVerified {
+            channelsError = "This key's OTP PIN is set. Unlock the OTP tab with \"Remember PIN\" turned on, then try again."
+        } catch KeyError.unexpectedStatus(let sw) {
+            channelsError = String(format: "The key refused the change (0x%04X).", sw)
+        } catch let e as KeyError where sent && overUSB && !isUserCancel(e) {
+            // The key rebooted before answering — expected when it applies the change.
+            token2Channels = c
+            channelsMessage = "Sent. The key restarted to apply it; re-read to confirm once it reconnects."
+        } catch let e as KeyError {
+            if !isUserCancel(e) { channelsError = e.errorDescription }
+        } catch where sent && overUSB {
+            token2Channels = c
+            channelsMessage = "Sent. The key restarted to apply it; re-read to confirm once it reconnects."
+        } catch {
+            channelsError = error.localizedDescription
+        }
+    }
+
+    private func isUserCancel(_ e: KeyError) -> Bool {
+        if case .userCancelled = e { return true }
+        return false
     }
 }

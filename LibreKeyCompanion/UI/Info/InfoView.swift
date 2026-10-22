@@ -10,6 +10,7 @@ struct InfoView: View {
     var selectedTab: Binding<Int>? = nil
     @State private var showPiv = false
     @State private var showPgp = false
+    @State private var showChannels = false
 
     /// This build can manage FIDO2 over USB-C for the keys its provider supports.
     private var usbFidoBuild: Bool { UsbFido.provider != nil }
@@ -54,6 +55,17 @@ struct InfoView: View {
                     if let a = session.fidoInfo?.aaguidHex, let entry = mds.lookup(aaguid: a) {
                         Section {
                             DeviceHeaderCard(entry: entry)
+                        }
+                    }
+                    if session.token2Present == true {
+                        Section {
+                            Button {
+                                showChannels = true
+                            } label: {
+                                Label("USB channels (FIDO / HID-HOTP / CCID)", systemImage: "switch.2")
+                            }
+                        } header: {
+                            Text("Device settings")
                         }
                     }
                     Section("Applets") {
@@ -160,6 +172,9 @@ struct InfoView: View {
             }
             .sheet(isPresented: $showPgp) {
                 if let s = session.pgpStatus { OpenPGPDetailView(status: s) }
+            }
+            .sheet(isPresented: $showChannels) {
+                ChannelsView()
             }
         }
     }

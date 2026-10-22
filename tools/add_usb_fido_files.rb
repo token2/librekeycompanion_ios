@@ -6,6 +6,8 @@ target = proj.targets.find { |t| t.name == 'LibreKeyCompanion' } or abort 'app t
 files = {
   'LibreKeyCompanion/FIDO/CTAP' => %w[CtapChannel.swift Token2UsbFidoProvider.swift],
   'LibreKeyCompanion/UI/FIDO'   => %w[FingerprintManagerView.swift],
+  'LibreKeyCompanion/UI/Shared' => %w[PinTextField.swift],
+  'LibreKeyCompanion/UI/Info'   => %w[ChannelsView.swift],
 }
 def group_for(proj, path)
   path.split('/').inject(proj.main_group) do |g, comp|

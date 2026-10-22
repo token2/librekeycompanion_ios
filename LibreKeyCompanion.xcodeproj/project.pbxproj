@@ -23,8 +23,10 @@
 		4314F894071EF8EBC23DB723 /* PinUvAuthProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F50C764DF96A8A0F008508 /* PinUvAuthProtocol.swift */; };
 		53093FC94B5912D725365533 /* KeySession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7485324F415B0235CABBFFA7 /* KeySession.swift */; };
 		61A95D4733938C6BB63506B9 /* PIVApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A021DD2474763850FFB64E /* PIVApplet.swift */; };
+		661FDD65C012D43C2B4E32FD /* ChannelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D085E4EB1DDDE6CF6390A52 /* ChannelsView.swift */; };
 		699463AC76007E151E6837FA /* FIDOView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED33C876D73562F93671D68C /* FIDOView.swift */; };
 		6B95645919B632BBFD3D3F00 /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8311C5B021934100D46740ED /* APDU.swift */; };
+		7217C14E44BDA03C9815669C /* PinTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A862007CFE9BD46F93D34A /* PinTextField.swift */; };
 		75AFE7A6E653F1979123F38D /* OTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 095C82A21D59D15CFFCC4921 /* OTPView.swift */; };
 		7BC1378F859AD9CFA4590FE7 /* CCIDTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E051A96D09E6DB2F7451D351 /* CCIDTransport.swift */; };
 		82B508410A15BE32F659F417 /* Token2PinValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E9182458FD0D1114728FD5 /* Token2PinValidator.swift */; };
@@ -73,6 +75,7 @@
 		03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceHeaderCard.swift; sourceTree = "<group>"; };
 		095C82A21D59D15CFFCC4921 /* OTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPView.swift; sourceTree = "<group>"; };
 		0BC1F7524556F549BF659D4B /* OTPAuthURI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPAuthURI.swift; sourceTree = "<group>"; };
+		11A862007CFE9BD46F93D34A /* PinTextField.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PinTextField.swift; sourceTree = "<group>"; };
 		148D47A1DFB96A5CB421F386 /* OATHCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHCoreTests.swift; sourceTree = "<group>"; };
 		2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YKOATHFramingTests.swift; sourceTree = "<group>"; };
 		2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token2CodecTests.swift; sourceTree = "<group>"; };
@@ -80,6 +83,7 @@
 		396B942EFED4FD0BAAA7CC19 /* Token2PinSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Token2PinSheet.swift; path = LibreKeyCompanion/UI/OTP/Token2PinSheet.swift; sourceTree = "<group>"; };
 		3B03498A15CF5C01FBF7D333 /* USBMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USBMonitor.swift; sourceTree = "<group>"; };
 		3C2EDB02B7AA8F994E215854 /* FingerprintManagerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FingerprintManagerView.swift; sourceTree = "<group>"; };
+		3D085E4EB1DDDE6CF6390A52 /* ChannelsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChannelsView.swift; sourceTree = "<group>"; };
 		433525195DE6EC1262BD2542 /* TransportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportPicker.swift; sourceTree = "<group>"; };
 		459653F1B2CC0BC49534E715 /* Token2Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token2Crypto.swift; sourceTree = "<group>"; };
 		4895B8E401BCCF18923A75CF /* Token2PinCryptoTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Token2PinCryptoTests.swift; path = LibreKeyCompanionTests/Token2PinCryptoTests.swift; sourceTree = "<group>"; };
@@ -209,6 +213,7 @@
 			isa = PBXGroup;
 			children = (
 				A23A90F0D72A561E03E0E23F /* InfoView.swift */,
+				3D085E4EB1DDDE6CF6390A52 /* ChannelsView.swift */,
 			);
 			path = Info;
 			sourceTree = "<group>";
@@ -241,6 +246,7 @@
 				03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */,
 				BDD8B48AD5E416B49EFAFB70 /* TouchPromptDialog.swift */,
 				433525195DE6EC1262BD2542 /* TransportPicker.swift */,
+				11A862007CFE9BD46F93D34A /* PinTextField.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -465,6 +471,8 @@
 				DCA709B9A949EA390BE78F41 /* CtapChannel.swift in Sources */,
 				F2B5E6797CE6BAEB11683B5A /* Token2UsbFidoProvider.swift in Sources */,
 				132A333897197265D0036E8A /* FingerprintManagerView.swift in Sources */,
+				7217C14E44BDA03C9815669C /* PinTextField.swift in Sources */,
+				661FDD65C012D43C2B4E32FD /* ChannelsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

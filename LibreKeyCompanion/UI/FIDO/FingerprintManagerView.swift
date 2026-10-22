@@ -157,7 +157,7 @@ private struct EnrollFingerprintSheet: View {
                         TextField("e.g. Right index", text: $name).autocorrectionDisabled()
                     }
                     Section {
-                        PinField(placeholder: "PIN", text: $pin, alphanumeric: $alphanumeric)
+                        PinField(placeholder: "PIN", text: $pin, alphanumeric: $alphanumeric, autoFocus: true)
                         Toggle("Letters & symbols", isOn: $alphanumeric)
                     } header: {
                         Text("PIN")
