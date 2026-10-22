@@ -21,14 +21,32 @@ struct FIDOView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Passkeys first: inspecting and deleting individual credentials
+                // is what most people open this tab for, so it's one tap away
+                // without having to read the device first.
                 Section {
+                    Button {
+                        if session.fidoInfo?.clientPinSet == false {
+                            session.fidoError = "This key has no FIDO2 PIN yet. Set one below, then manage passkeys."
+                        } else if session.fidoInfo.map({ !$0.supportsCredMgmt }) == true {
+                            session.fidoError = "This key doesn't support managing individual passkeys."
+                        } else {
+                            sheet = .listPasskeys
+                        }
+                    } label: {
+                        Label("Manage passkeys", systemImage: "person.badge.key.fill")
+                            .font(.headline)
+                    }
+                    .disabled(session.fidoBusy)
                     Button {
                         Task { await session.fidoReadInfo() }
                     } label: {
-                        Label(session.fidoBusy ? "Reading…" : "Read Device",
+                        Label(session.fidoBusy ? "Reading…" : "Read key settings",
                               systemImage: "wave.3.right")
                     }
                     .disabled(session.fidoBusy)
+                } footer: {
+                    Text("Manage passkeys lists every passkey stored on the key, with details and delete. You'll be asked for the key's PIN.")
                 }
 
                 if let msg = session.fidoMessage {
@@ -51,18 +69,6 @@ struct FIDOView: View {
                             DeviceHeaderCard(entry: entry)
                         }
                     }
-                    Section("Authenticator") {
-                        row("Connection", session.fidoOverUSB ? "USB-C" : "NFC")
-                        row("Versions", info.versions.joined(separator: ", "))
-                        if let a = info.aaguidHex { row("AAGUID", a) }
-                        row("PIN protocols", info.pinProtocols.map(String.init).joined(separator: ", "))
-                        row("PIN set", info.clientPinSet ? "Yes" : "No")
-                        row("alwaysUV", info.alwaysUv ? "On" : "Off")
-                        row("Credential mgmt", info.supportsCredMgmt ? "Supported" : "—")
-                        if let r = session.fidoRetries { row("PIN retries left", "\(r)") }
-                        if let m = info.minPinLength { row("Min PIN length", "\(m)") }
-                    }
-
                     Section("PIN") {
                         if info.clientPinSet {
                             Button("Change PIN") { sheet = .changePin }
@@ -90,12 +96,6 @@ struct FIDOView: View {
                         }
                     }
 
-                    if info.supportsCredMgmt {
-                        Section("Passkeys") {
-                            Button("Manage passkeys") { sheet = .listPasskeys }
-                        }
-                    }
-
                     if info.supportsBioEnroll {
                         Section {
                             Button("Manage fingerprints") {
@@ -111,6 +111,18 @@ struct FIDOView: View {
                         }
                     }
 
+                    Section("Authenticator") {
+                        row("Connection", session.fidoOverUSB ? "USB-C" : "NFC")
+                        row("Versions", info.versions.joined(separator: ", "))
+                        if let a = info.aaguidHex { row("AAGUID", a) }
+                        row("PIN protocols", info.pinProtocols.map(String.init).joined(separator: ", "))
+                        row("PIN set", info.clientPinSet ? "Yes" : "No")
+                        row("alwaysUV", info.alwaysUv ? "On" : "Off")
+                        row("Credential mgmt", info.supportsCredMgmt ? "Supported" : "—")
+                        if let r = session.fidoRetries { row("PIN retries left", "\(r)") }
+                        if let m = info.minPinLength { row("Min PIN length", "\(m)") }
+                    }
+
                     Section {
                         Button("Reset FIDO2…", role: .destructive) { confirmReset = true }
                             .disabled(session.fidoResetArmed)
@@ -123,7 +135,7 @@ struct FIDOView: View {
                     }
                 }
             }
-            .navigationTitle("FIDO2")
+            .navigationTitle("Passkeys & FIDO2")
             .sheet(item: $sheet) { which in
                 switch which {
                 case .setPin:

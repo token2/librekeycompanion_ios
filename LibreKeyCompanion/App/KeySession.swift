@@ -1054,6 +1054,12 @@ final class KeySession: ObservableObject {
     func fidoListPasskeys(pin: String) async {
         passkeys = []     // clear before re-reading; failed list shouldn't show stale entries
         await runFido("Hold your key near the phone to list passkeys.") { applet in
+            // Fill in the key's details too, so the rest of the tab is populated
+            // when the user goes straight to "Manage passkeys".
+            if let info = try? await applet.getInfo() {
+                self.fidoInfo = info
+                if info.clientPinSet { self.fidoRetries = try? await applet.getPinRetries() }
+            }
             let list = try await applet.listPasskeys(pin: pin)
                 self.passkeys = list
                 self.fidoMessage = list.isEmpty ? "No passkeys on this key." : "\(list.count) passkey(s)."

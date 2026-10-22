@@ -23,12 +23,15 @@ struct RootTabView: View {
             InfoView(isActive: selectedTab == 0, selectedTab: $selectedTab)
                 .tabItem { Label("Info", systemImage: "key.fill") }
                 .tag(0)
+            // Passkeys sit next to Info: managing individual FIDO2 credentials is
+            // the app's headline feature. Tags are unchanged so goToTab(...) still
+            // points at the same screens.
+            FIDOView()
+                .tabItem { Label("Passkeys", systemImage: "person.badge.key.fill") }
+                .tag(2)
             OTPView(isActive: selectedTab == 1)
                 .tabItem { Label("OTP", systemImage: "clock.fill") }
                 .tag(1)
-            FIDOView()
-                .tabItem { Label("FIDO2", systemImage: "lock.shield.fill") }
-                .tag(2)
         }
         .onAppear { session.startUSBMonitoring() }
         .onDisappear { session.stopUSBMonitoring() }
