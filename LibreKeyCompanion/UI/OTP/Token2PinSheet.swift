@@ -34,18 +34,18 @@ struct Token2PinSheet: View {
             Form {
                 if kind == .change || kind == .remove {
                     Section("Current PIN") {
-                        PinTextField(placeholder: "Current PIN", text: $current, alphanumeric: alphaKeypad, autoFocus: true)
+                        PinEntryField(placeholder: "Current PIN", text: $current, alphanumeric: alphaKeypad, autoFocus: true)
                     }
                 }
                 if kind == .set || kind == .change {
                     Section(kind == .set ? "New PIN" : "New PIN") {
-                        PinTextField(placeholder: "New PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: kind == .set)
-                        PinTextField(placeholder: "Confirm new PIN", text: $confirm, alphanumeric: alphaKeypad)
+                        PinEntryField(placeholder: "New PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: kind == .set)
+                        PinEntryField(placeholder: "Confirm new PIN", text: $confirm, alphanumeric: alphaKeypad)
                     }
                 }
                 if kind == .enableFingerprint || kind == .disableFingerprint {
                     Section {
-                        PinTextField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: true)
+                        PinEntryField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad, autoFocus: true)
                     } header: {
                         Text("OTP PIN")
                     } footer: {
@@ -72,7 +72,7 @@ struct Token2PinSheet: View {
                     Section("OTP PIN") {
                         // Don't grab focus when fingerprint unlock is on offer:
                         // the keyboard would cover that button.
-                        PinTextField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad,
+                        PinEntryField(placeholder: "OTP PIN", text: $newPin, alphanumeric: alphaKeypad,
                                      autoFocus: !session.otpFingerprintUnlockAvailable)
                     }
                 }

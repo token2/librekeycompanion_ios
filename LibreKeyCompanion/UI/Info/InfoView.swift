@@ -62,7 +62,7 @@ struct InfoView: View {
                             Button {
                                 showChannels = true
                             } label: {
-                                Label("USB channels (FIDO / HID-HOTP / CCID)", systemImage: "switch.2")
+                                Label("USB channels (HID-HOTP)", systemImage: "switch.2")
                             }
                         } header: {
                             Text("Device settings")

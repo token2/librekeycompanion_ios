@@ -195,7 +195,7 @@ private struct DeletePinSheet: View {
         NavigationStack {
             Form {
                 Section("Confirm with PIN") {
-                    PinTextField(placeholder: "PIN", text: $pin, alphanumeric: alphanumeric, autoFocus: true)
+                    PinEntryField(placeholder: "PIN", text: $pin, alphanumeric: alphanumeric, autoFocus: true)
                 }
                 Section {
                     Toggle("Letters & symbols", isOn: $alphanumeric)

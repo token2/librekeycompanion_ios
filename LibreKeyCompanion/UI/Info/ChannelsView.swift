@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Token2 USB channel settings (FIDO / HID-HOTP / CCID), like Device Settings in
-/// the Token2 desktop tools. Reads the current state when opened; Apply sends
-/// SET_DEVICE_TYPE and the key restarts to take it. NFC isn't affected.
+/// Token2 USB channel settings. Shows the FIDO / HID-HOTP / CCID state; only
+/// HID-HOTP can be switched here. FIDO and CCID are status-only — changing them
+/// can cut off browsers or this app, so that's left to the desktop tools.
+/// Apply sends SET_DEVICE_TYPE and the key restarts to take it. NFC isn't affected.
 struct ChannelsView: View {
     @EnvironmentObject var session: KeySession
     @Environment(\.dismiss) private var dismiss
@@ -26,31 +27,30 @@ struct ChannelsView: View {
                     Section { Text(err).foregroundStyle(.orange).font(.callout) }
                 }
 
-                if loaded, current != nil {
+                if loaded, let cur = current {
                     Section {
-                        Toggle(isOn: $draft.fido) {
-                            channelLabel("FIDO", "Passkeys and security-key sign-in in browsers and apps.")
-                        }
                         Toggle(isOn: $draft.hidHotp) {
-                            channelLabel("HID-HOTP", "Types an HOTP code when the key's button is touched (acts as a keyboard).")
-                        }
-                        Toggle(isOn: $draft.ccid) {
-                            channelLabel("CCID", "Smart card: OTP, PIV, OpenPGP — and how this app reaches the key over USB-C.")
+                            channelLabel("HID-HOTP", "Types an HOTP code when the key's button is touched. While it's on, iOS treats the plugged-in key as a keyboard and hides the on-screen keyboard.")
                         }
                     } header: {
-                        Text("USB channels")
+                        Text("Keyboard channel")
                     } footer: {
-                        Text("Disabling a channel turns off the matching USB function. At least two channels must stay on. NFC is not affected. HID-HOTP is off by default from Release 3.3.")
+                        Text("Off by default from Release 3.3. Turn it on only if you use button-press HOTP (for example with UserLock).")
+                    }
+
+                    Section {
+                        statusRow("FIDO", "Passkeys and security-key sign-in.", on: cur.fido)
+                        statusRow("CCID", "Smart card: OTP, PIV, OpenPGP, and this app over USB-C.", on: cur.ccid)
+                    } header: {
+                        Text("Other channels")
+                    } footer: {
+                        Text("Shown for information. These normally stay on; if you ever need to change them, use Token2 Key Manager on a computer.")
                     }
 
                     if tooFew {
-                        Section { Text("Keep at least two channels enabled.").foregroundStyle(.orange).font(.callout) }
-                    } else if !draft.ccid && current?.ccid == true {
                         Section {
-                            Text(onUSB
-                                 ? "With CCID off, this app can no longer reach the key over USB-C. You can still turn it back on over NFC (if the key has NFC) or from a computer."
-                                 : "With CCID off, apps can't reach the key as a smart card over USB (OTP, PIV, OpenPGP). NFC keeps working.")
-                                .font(.callout)
+                            Text("At least two channels must stay on. Turn FIDO or CCID back on from a computer first.")
+                                .foregroundStyle(.orange).font(.callout)
                         }
                     }
 
@@ -82,7 +82,11 @@ struct ChannelsView: View {
                 if let c { draft = c; loaded = true }
             }
             .confirmationDialog("Apply channel settings?", isPresented: $confirmApply, titleVisibility: .visible) {
-                Button("Apply and restart key") { Task { await session.applyChannels(draft) } }
+                Button("Apply and restart key") {
+                    guard let cur = current else { return }
+                    var c = cur; c.hidHotp = draft.hidHotp
+                    Task { await session.applyChannels(c) }
+                }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text(summary)
@@ -97,8 +101,16 @@ struct ChannelsView: View {
     }
 
     private var summary: String {
-        func s(_ on: Bool) -> String { on ? "on" : "off" }
-        return "FIDO \(s(draft.fido)), HID-HOTP \(s(draft.hidHotp)), CCID \(s(draft.ccid)). The key restarts to apply the change."
+        "HID-HOTP will be turned \(draft.hidHotp ? "on" : "off"). The key restarts to apply the change."
+    }
+
+    @ViewBuilder
+    private func statusRow(_ title: String, _ detail: String, on: Bool) -> some View {
+        HStack {
+            channelLabel(title, detail)
+            Spacer()
+            Text(on ? "On" : "Off").foregroundStyle(on ? Color.green : Color.orange)
+        }
     }
 
     @ViewBuilder

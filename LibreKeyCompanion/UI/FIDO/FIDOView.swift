@@ -208,7 +208,7 @@ struct PinField: View {
 
     var body: some View {
         // UIKit-backed: switches keypads in place and reliably shows the keyboard.
-        PinTextField(placeholder: placeholder, text: $text, alphanumeric: alphanumeric, autoFocus: autoFocus)
+        PinEntryField(placeholder: placeholder, text: $text, alphanumeric: alphanumeric, autoFocus: autoFocus)
     }
 }
 
