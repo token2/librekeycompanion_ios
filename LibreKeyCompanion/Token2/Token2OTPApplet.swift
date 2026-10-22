@@ -12,7 +12,7 @@ import Foundation
 /// read-one, write/update (encrypted), delete (encrypted), erase-all.
 /// SET_DEVICE_TYPE is intentionally omitted on iOS (it's the brick-risk command).
 final class Token2OTPApplet {
-    private let transport: KeyTransport
+    let transport: KeyTransport
     init(transport: KeyTransport) { self.transport = transport }
 
     static let MGMT_AID = Data([0xF0, 0x00, 0x00, 0x01, 0x4F, 0x74, 0x70, 0x01])
@@ -61,6 +61,10 @@ final class Token2OTPApplet {
         /// §1.11 ext bit 7: OTP generation currently requires a fingerprint.
         let otpFingerprintRequired: Bool
         let fidoVersion: String
+        /// The reply carried byte 1 (capability flags). Some firmware returns only
+        /// byte 0 over CCID/NFC; then the capability flags above read as false
+        /// and mean "unknown", not "absent".
+        let hasConfigByte: Bool
         /// §6.9 byte 0: USB interfaces (channels) currently turned off. Nil when
         /// the key returned no config bytes at all.
         let channels: Channels?
@@ -162,7 +166,11 @@ final class Token2OTPApplet {
     @discardableResult
     func readConfig(numBytes: Int = 10) async throws -> DeviceInfo {
         let n = UInt8(min(max(numBytes, 10), 64))
-        let resp = try await transmitChecked(apduExt(Cmd.readConfig, Data([n])))
+        // ISO case 2: header + Le only. Sending the length as an extended-Lc data
+        // body makes some firmware answer with byte 0 alone over CCID/NFC, which
+        // hides every capability flag (same fix as the Android app).
+        let cmd = Cmd.readConfig
+        let resp = try await transmitChecked(APDU(cla: cmd[0], ins: cmd[1], p1: cmd[2], p2: cmd[3], le: Int(n)))
         let channels: Channels? = resp.isEmpty ? nil : {
             let b = resp[resp.startIndex]
             return Channels(fido: b & 0x01 == 0, hidHotp: b & 0x02 == 0, ccid: b & 0x04 == 0)
@@ -184,6 +192,7 @@ final class Token2OTPApplet {
             otpFingerprintProtectSupported: ext & 0x80 != 0,
             otpFingerprintRequired: ext & 0x40 != 0,
             fidoVersion: fido,
+            hasConfigByte: resp.count >= 2,
             channels: channels)
     }
 

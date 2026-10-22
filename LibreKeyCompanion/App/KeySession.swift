@@ -351,6 +351,14 @@ final class KeySession: ObservableObject {
         token2Channels = nil
         channelsMessage = nil
         channelsError = nil
+        resetFingerprintAvailability()
+    }
+
+    private func resetFingerprintAvailability() {
+        keyFingerprintCapableCache = false
+        keyFingerprintSensorCache = false
+        otpFingerprintUnlockAvailable = false
+        otpFingerprintManageable = false
     }
 
     struct LiveCode: Identifiable {
@@ -374,6 +382,7 @@ final class KeySession: ObservableObject {
         // different key and wondering whether it's current.
         credentials = []
         detectedKind = .unknown
+        resetFingerprintAvailability()   // decided afresh for whichever key this is
         do {
             let transport = try await makeCCIDTransport(alert: "Hold your key near the phone to read OTP codes.")
             defer { transport.invalidate(message: "Done.") }
@@ -521,19 +530,36 @@ final class KeySession: ObservableObject {
     /// Probe capability against a live applet, cache it, and recompute whether the
     /// fingerprint-unlock button should show (capable AND on USB). Call this before
     /// raising an unlock prompt from any path that has an applet in hand.
+    /// Decide, for the key in this session, whether it has a fingerprint sensor
+    /// (manage) and can unlock OTP by fingerprint (unlock). Recomputed per key —
+    /// never carried over from a previously connected one.
+    ///
+    /// The sensor answer comes from FIDO2 getInfo (`bioEnroll` present) when it's
+    /// reachable — that's authoritative. The vendor config byte's fingerprint bit
+    /// isn't reliable on every model, so it's only a fallback, and only when the
+    /// key actually returned that byte. No sensor ⇒ no fingerprint options, even
+    /// if a flag byte claims otherwise.
     private func refreshFingerprintAvailability(_ applet: Token2OTPApplet) async {
-        // One config read serves both signals: sensor-present (manage) and
-        // protection-supported/enabled (unlock).
-        if let info = try? await applet.readConfig() {
-            if info.fingerprintPresent { keyFingerprintSensorCache = true }
-            if info.otpFingerprintProtectSupported && info.fingerprintPresent {
-                keyFingerprintCapableCache = true
-            }
+        var sensor: Bool?
+        // 1. FIDO2 getInfo over USB through the build's provider (same session).
+        if let channel = await usbFidoChannel(applet.transport) {
+            sensor = (try? await FIDOApplet(channel: channel).getInfo())?.supportsBioEnroll
+            try? await applet.select()   // back to the OTP applet before PIN commands
         }
-        if (try? await applet.pinStatus())?.fpEnable == true {
-            keyFingerprintCapableCache = true          // enabled ⇒ provably capable
-            keyFingerprintSensorCache = true
-        }
+        // 2. FIDO2 info already read over USB from the plugged-in key.
+        if sensor == nil, fidoOverUSB, let fi = fidoInfo { sensor = fi.supportsBioEnroll }
+        // 3. Vendor config, only if the capability byte came back.
+        let config = try? await applet.readConfig()
+        if sensor == nil, let c = config, c.hasConfigByte { sensor = c.fingerprintPresent }
+
+        let hasSensor = sensor ?? false
+        // (No `await` inside || — autoclosures can't suspend.)
+        let fpEnabledNow = hasSensor ? ((try? await applet.pinStatus())?.fpEnable == true) : false
+        let configSaysSupported = config?.hasConfigByte == true && config?.otpFingerprintProtectSupported == true
+        // A PIN-protected key is R3.4+, where Bio keys support fingerprint unlock.
+        let protectSupported = configSaysSupported || fpEnabledNow || otpPinProtected
+        keyFingerprintSensorCache = hasSensor
+        keyFingerprintCapableCache = hasSensor && protectSupported
         let onUSB = (transportMode == .usb)
         otpFingerprintUnlockAvailable = onUSB && keyFingerprintCapableCache
         otpFingerprintManageable      = onUSB && keyFingerprintSensorCache
