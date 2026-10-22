@@ -72,9 +72,10 @@ public enum KeyError: Error, LocalizedError {
 ///
 /// Two concrete conformers on iOS: `NFCTransport` (CoreNFC, all applets) and
 /// `CCIDTransport` (CryptoTokenKit over USB-C, for the CCID-interface applets —
-/// OATH, Token2 OTP, PIV, OpenPGP). FIDO2 uses the key's CTAPHID interface, which
-/// iOS does not expose to third-party apps, so FIDO2 remains NFC-only. Applet
-/// code stays transport-agnostic, exactly as in the original.
+/// OATH, Token2 OTP, PIV, OpenPGP). The standard FIDO2 binding needs the key's
+/// CTAPHID interface over USB, which iOS does not expose, so FIDO2 uses NFC unless
+/// a `UsbFidoProvider` supplies another channel. Applet code stays
+/// transport-agnostic, exactly as in the original.
 public protocol KeyTransport: AnyObject {
     var isConnected: Bool { get }
     /// Send one command APDU and await the response, transparently chaining

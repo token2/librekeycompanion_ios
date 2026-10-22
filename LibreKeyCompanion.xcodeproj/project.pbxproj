@@ -11,6 +11,7 @@
 		062902D541F44CCD85ADB9A6 /* OATHCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5589B51A372BC20C68118192 /* OATHCore.swift */; };
 		0B22622B82531219E5F3ECC8 /* Token2Codec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679EEEDBD99EF5E950062146 /* Token2Codec.swift */; };
 		0B74FB75B368AD21D21B8EB4 /* LibreKeyCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31B7D4FA9604D4CA8CDD5565 /* LibreKeyCompanionApp.swift */; };
+		132A333897197265D0036E8A /* FingerprintManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2EDB02B7AA8F994E215854 /* FingerprintManagerView.swift */; };
 		13FD17CF23BB1F32E6DFC008 /* Token2OTPApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB0D0F2BCA18E0E27E99DBF /* Token2OTPApplet.swift */; };
 		1550C4F223171F353E02BCD4 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D78095AFB6336E9B7B63FD2C /* QRScannerView.swift */; };
 		1A461D27F7E4C97FE23574A4 /* TransportPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433525195DE6EC1262BD2542 /* TransportPicker.swift */; };
@@ -41,6 +42,7 @@
 		C8FA8B458E579CD8C40B3D40 /* CborTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7E93A9B284C032203A8C53 /* CborTests.swift */; };
 		D0DBDDE017062D7854EF8B81 /* NFCTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A2DE626D7172E0CF133815 /* NFCTransport.swift */; };
 		D50744172022DB4DFB8D473C /* KeyTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0CA5899823736B96306523C /* KeyTransport.swift */; };
+		DCA709B9A949EA390BE78F41 /* CtapChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70942A535423E51903630D23 /* CtapChannel.swift */; };
 		DFBD8E09801FD0DC30D73BC7 /* DeviceHeaderCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E087D7CCA5CB1F9F682D6E /* DeviceHeaderCard.swift */; };
 		E30D805058DB85D0FEC78094 /* YKOATHApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A7F076F93EDA30F949A634 /* YKOATHApplet.swift */; };
 		E51D4D40DE6AEE07EB55E23E /* Token2CodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CD8490FC5D1E6306C920DEA /* Token2CodecTests.swift */; };
@@ -48,6 +50,7 @@
 		E965EDB3FC57209C9C5CB80D /* TLV.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6548EC50A6D70B24E8F109B /* TLV.swift */; };
 		ED44DD3571D4CE80E980946F /* OATHPassword.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF76D941141B431B6709DDBF /* OATHPassword.swift */; };
 		F0BEE3666BC245CD23A7E3E0 /* TouchPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD8B48AD5E416B49EFAFB70 /* TouchPromptDialog.swift */; };
+		F2B5E6797CE6BAEB11683B5A /* Token2UsbFidoProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872BD005A661457099924183 /* Token2UsbFidoProvider.swift */; };
 		F39CA3551C2AA894E5A7F735 /* AddEntryForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0B4F9E0A4CE598E7AF5C39 /* AddEntryForm.swift */; };
 		F986A86B1E46502ED3E7C528 /* YKOATHFramingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6AB424B8AFC4374953DCE5 /* YKOATHFramingTests.swift */; };
 		FB0DDD9BDC112F14CB10DAF2 /* MDSRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C33A3D1DCDD1F00E056B59A /* MDSRepository.swift */; };
@@ -76,6 +79,7 @@
 		31B7D4FA9604D4CA8CDD5565 /* LibreKeyCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibreKeyCompanionApp.swift; sourceTree = "<group>"; };
 		396B942EFED4FD0BAAA7CC19 /* Token2PinSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Token2PinSheet.swift; path = LibreKeyCompanion/UI/OTP/Token2PinSheet.swift; sourceTree = "<group>"; };
 		3B03498A15CF5C01FBF7D333 /* USBMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USBMonitor.swift; sourceTree = "<group>"; };
+		3C2EDB02B7AA8F994E215854 /* FingerprintManagerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FingerprintManagerView.swift; sourceTree = "<group>"; };
 		433525195DE6EC1262BD2542 /* TransportPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportPicker.swift; sourceTree = "<group>"; };
 		459653F1B2CC0BC49534E715 /* Token2Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token2Crypto.swift; sourceTree = "<group>"; };
 		4895B8E401BCCF18923A75CF /* Token2PinCryptoTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Token2PinCryptoTests.swift; path = LibreKeyCompanionTests/Token2PinCryptoTests.swift; sourceTree = "<group>"; };
@@ -85,10 +89,12 @@
 		66A021DD2474763850FFB64E /* PIVApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVApplet.swift; sourceTree = "<group>"; };
 		679EEEDBD99EF5E950062146 /* Token2Codec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token2Codec.swift; sourceTree = "<group>"; };
 		69B5957795A064B901748639 /* OpenPGPApplet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenPGPApplet.swift; sourceTree = "<group>"; };
+		70942A535423E51903630D23 /* CtapChannel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CtapChannel.swift; sourceTree = "<group>"; };
 		7485324F415B0235CABBFFA7 /* KeySession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeySession.swift; sourceTree = "<group>"; };
 		7C4825F2088C0D84D0D90C6F /* PasskeyManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeyManagerView.swift; sourceTree = "<group>"; };
 		8311C5B021934100D46740ED /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APDU.swift; sourceTree = "<group>"; };
 		84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LibreKeyCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		872BD005A661457099924183 /* Token2UsbFidoProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Token2UsbFidoProvider.swift; sourceTree = "<group>"; };
 		95E9182458FD0D1114728FD5 /* Token2PinValidator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Token2PinValidator.swift; path = LibreKeyCompanion/Token2/Token2PinValidator.swift; sourceTree = "<group>"; };
 		9C33A3D1DCDD1F00E056B59A /* MDSRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MDSRepository.swift; sourceTree = "<group>"; };
 		A0CA5899823736B96306523C /* KeyTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyTransport.swift; sourceTree = "<group>"; };
@@ -212,6 +218,7 @@
 			children = (
 				ED33C876D73562F93671D68C /* FIDOView.swift */,
 				7C4825F2088C0D84D0D90C6F /* PasskeyManagerView.swift */,
+				3C2EDB02B7AA8F994E215854 /* FingerprintManagerView.swift */,
 			);
 			path = FIDO;
 			sourceTree = "<group>";
@@ -222,6 +229,8 @@
 				01CC1A4E2B1D5F0722DA8793 /* Cbor.swift */,
 				B235DBD1C2131AA3AF182B22 /* Ctap2Client.swift */,
 				01F50C764DF96A8A0F008508 /* PinUvAuthProtocol.swift */,
+				70942A535423E51903630D23 /* CtapChannel.swift */,
+				872BD005A661457099924183 /* Token2UsbFidoProvider.swift */,
 			);
 			path = CTAP;
 			sourceTree = "<group>";
@@ -453,6 +462,9 @@
 				A0E04CC51780DB387F350844 /* Token2PinCrypto.swift in Sources */,
 				82B508410A15BE32F659F417 /* Token2PinValidator.swift in Sources */,
 				90C156E840CCAEB1387A1E57 /* Token2PinSheet.swift in Sources */,
+				DCA709B9A949EA390BE78F41 /* CtapChannel.swift in Sources */,
+				F2B5E6797CE6BAEB11683B5A /* Token2UsbFidoProvider.swift in Sources */,
+				132A333897197265D0036E8A /* FingerprintManagerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

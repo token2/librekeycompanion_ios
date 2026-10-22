@@ -64,7 +64,8 @@ final class KeySession: ObservableObject {
     }
 
     /// Connection transport for CCID-interface applets (OATH, Token2, PIV, PGP).
-    /// FIDO2 always uses NFC regardless (its HID interface isn't USB-reachable).
+    /// FIDO2 follows it only when a `UsbFidoProvider` accepts the attached key;
+    /// otherwise FIDO2 uses NFC.
     enum TransportMode: String { case nfc, usb }
     @Published var transportMode: TransportMode = .nfc
     /// Whether a USB smart-card key is currently attached (for enabling the option).
@@ -81,6 +82,12 @@ final class KeySession: ObservableObject {
         usbMonitor.onCardReady = { [weak self] in
             guard let self else { return }
             self.transportMode = .usb
+            if self.fidoResetArmed {
+                // The re-plug the reset was waiting for: run it now, inside the
+                // key's post-power-up window, and don't trigger a tab auto-read.
+                Task { await self.fidoRunArmedReset() }
+                return
+            }
             self.usbCardReady = true
         }
         usbMonitor.onAttachChange = { [weak self] attached in
@@ -98,6 +105,9 @@ final class KeySession: ObservableObject {
                 self?.forgetOATHPasswords()
                 self?.pivStatus = nil; self?.pgpStatus = nil
                 self?.pivAbsent = false; self?.pgpAbsent = false
+                if self?.fidoResetArmed == true {
+                    self?.fidoMessage = "Key removed. Plug it back in to run the reset."
+                }
             }
         }
         usbMonitor.start()
@@ -127,6 +137,24 @@ final class KeySession: ObservableObject {
     @Published var fidoMessage: String?
     @Published var fidoError: String?
     @Published var fidoBusy = false
+    /// True when the last FIDO2 operation ran over USB (vendor channel).
+    @Published var fidoOverUSB = false
+    /// The channel used last can set a separate alphanumeric PIN minimum.
+    @Published var fidoSupportsAlphaMinPin = false
+    /// Enrolled fingerprints, as last listed.
+    @Published var fingerprints: [Ctap2Client.Fingerprint] = []
+    /// Live state of a fingerprint enrollment, for the progress sheet.
+    struct EnrollProgress: Equatable {
+        var samplesDone = 0
+        var remaining: Int?
+        var lastStatus: String?
+        var finished = false
+    }
+    @Published var enrollProgress: EnrollProgress?
+    private var enrollCancelRequested = false
+    /// A USB reset is waiting for the key to be unplugged and plugged back in.
+    @Published var fidoResetArmed = false
+    private var fidoResetArmedAt: Date?
 
     /// Session-only remembered FIDO PIN — held in memory for convenience so
     /// consecutive operations don't each re-prompt. NEVER persisted to disk.
@@ -269,10 +297,20 @@ final class KeySession: ObservableObject {
                 try? await readOATH(transport: transport)
             }
 
-            // FIDO2 rides the key's CTAPHID interface, which isn't reachable over
-            // USB on iOS — only probe it over NFC.
+            // Over USB the standard FIDO2 binding isn't reachable (CTAPHID). Probe
+            // through a registered USB provider if there is one; otherwise unknown.
             if isUSB {
-                fidoPresent = nil          // unknown over USB
+                if let channel = await usbFidoChannel(transport) {
+                    do {
+                        let info = try await FIDOApplet(channel: channel).getInfo()
+                        fidoPresent = true
+                        fidoInfo = info
+                        fidoOverUSB = true
+                        fidoSupportsAlphaMinPin = channel.supportsAlphanumericMinPin
+                    } catch { fidoPresent = nil }
+                } else {
+                    fidoPresent = nil      // unknown over USB
+                }
             } else {
                 do {
                     let info = try await FIDOApplet(transport: transport).getInfo()
@@ -307,6 +345,9 @@ final class KeySession: ObservableObject {
         passkeys = []
         fidoMessage = nil
         fidoError = nil
+        fingerprints = []
+        fidoOverUSB = false
+        fidoSupportsAlphaMinPin = false
     }
 
     struct LiveCode: Identifiable {
@@ -856,31 +897,88 @@ final class KeySession: ObservableObject {
 
     // MARK: - FIDO2 operations
 
-    /// Run a FIDO operation over one NFC tap. `op` receives a connected applet.
+    /// A FIDO2 channel over an already-connected USB transport, if this build has
+    /// a provider and it accepts the attached key.
+    private func usbFidoChannel(_ transport: KeyTransport) async -> CtapChannel? {
+        guard let provider = UsbFido.provider, let usb = transport as? CCIDTransport else { return nil }
+        return await provider.channel(for: usb, slotName: usb.slotName)
+    }
+
+    /// Run a FIDO operation over USB when a provider accepts the attached key,
+    /// otherwise over one NFC tap. `op` receives a connected applet.
     private func runFido(_ alert: String, _ op: @escaping @MainActor (FIDOApplet) async throws -> Void) async {
-        #if canImport(CoreNFC)
         fidoBusy = true; fidoError = nil; fidoMessage = nil
+        defer { fidoBusy = false }
+
+        var nfcAlert = alert
+        if transportMode == .usb, CCIDTransport.isAvailable, UsbFido.provider != nil {
+            let usb = CCIDTransport()
+            var channel: CtapChannel?
+            do {
+                try await usb.connect()
+                channel = await usbFidoChannel(usb)
+            } catch {
+                channel = nil
+            }
+            if let channel {
+                fidoOverUSB = true
+                fidoSupportsAlphaMinPin = channel.supportsAlphanumericMinPin
+                await runFidoOp(op, FIDOApplet(channel: channel)) { usb.invalidate(message: $0) }
+                return
+            }
+            usb.invalidate(message: nil)
+            nfcAlert = "FIDO2 over USB isn't available for this key. " + alert
+        }
+
+        #if canImport(CoreNFC)
         let transport = NFCTransport()
-        transport.alertMessage = alert
+        transport.alertMessage = nfcAlert
         do {
             try await transport.connect()
-            let applet = FIDOApplet(transport: transport)
-            try await op(applet)
-            transport.invalidate(message: "Done.")
-        } catch let e as CtapError {
-            fidoError = e.localizedDescription
-            transport.invalidate()
         } catch let e as KeyError {
             if case .userCancelled = e {} else { fidoError = e.errorDescription }
             transport.invalidate()
+            return
         } catch {
             fidoError = error.localizedDescription
             transport.invalidate()
+            return
         }
-        fidoBusy = false
+        fidoOverUSB = false
+        fidoSupportsAlphaMinPin = false
+        await runFidoOp(op, FIDOApplet(transport: transport)) { transport.invalidate(message: $0) }
         #else
         fidoError = "NFC requires a physical iOS device."
         #endif
+    }
+
+    /// Run `op`, map its errors onto `fidoError`, then close the session.
+    private func runFidoOp(_ op: @MainActor (FIDOApplet) async throws -> Void,
+                           _ applet: FIDOApplet,
+                           close: (String?) -> Void) async {
+        do {
+            try await op(applet)
+            close("Done.")
+        } catch let e as CtapError {
+            fidoError = friendlyCtap(e)
+            close(nil)
+        } catch let e as KeyError {
+            if case .userCancelled = e {} else { fidoError = e.errorDescription }
+            close(nil)
+        } catch {
+            fidoError = error.localizedDescription
+            close(nil)
+        }
+    }
+
+    private func friendlyCtap(_ e: CtapError) -> String {
+        switch e.code {
+        case 0x30: return "The key refused the reset. Reset only works within about 10 seconds of plugging the key in or tapping it, and may need a touch."
+        case 0x2F: return "Timed out waiting for a touch on the key."
+        case 0x37: return "PIN policy violation — the new value doesn't meet the key's PIN rules (a minimum PIN length can only be raised)."
+        case 0x3E: return "The key's fingerprint storage is full."
+        default: return e.localizedDescription
+        }
     }
 
     func fidoReadInfo() async {
@@ -939,5 +1037,133 @@ final class KeySession: ObservableObject {
                 self.passkeys.removeAll { $0.credentialId == credentialId }
                 self.fidoMessage = "Passkey deleted."
         }
+    }
+
+    // MARK: - FIDO2 minimum PIN length
+
+    func fidoSetMinPinLength(pin: String, length: Int, alphanumeric: Bool) async {
+        await runFido("Hold your key near the phone to set the minimum PIN length.") { applet in
+            try await applet.setMinPinLength(pin: pin, length: length, alphanumeric: alphanumeric)
+            let info = try await applet.getInfo()
+            self.fidoInfo = info
+            self.fidoMessage = alphanumeric
+                ? "Minimum length for PINs with letters or symbols is now \(length)."
+                : "Minimum PIN length is now \(length)."
+        }
+    }
+
+    // MARK: - FIDO2 reset
+
+    /// Reset FIDO2. Over NFC the tap itself powers the key up, so the reset runs
+    /// immediately. Over USB the key must be re-plugged first: this arms the reset
+    /// and the USB monitor runs it as soon as the key is detected again.
+    func fidoReset() async {
+        let usbProviderUsable = transportMode == .usb && CCIDTransport.isAvailable && UsbFido.provider != nil
+        if usbProviderUsable && fidoOverUSB {
+            fidoError = nil
+            fidoResetArmed = true
+            fidoResetArmedAt = Date()
+            fidoMessage = "Unplug the key and plug it back in. The reset runs as soon as the key is detected — touch it if it blinks."
+            return
+        }
+        await fidoResetNow(alert: "Hold your key near the phone to reset FIDO2. Touch it if it blinks.")
+    }
+
+    func fidoCancelArmedReset() {
+        fidoResetArmed = false
+        fidoResetArmedAt = nil
+        fidoMessage = "Reset cancelled."
+    }
+
+    fileprivate func fidoRunArmedReset() async {
+        let fresh = fidoResetArmedAt.map { Date().timeIntervalSince($0) < 120 } ?? false
+        fidoResetArmed = false
+        fidoResetArmedAt = nil
+        guard fresh else { fidoMessage = nil; usbCardReady = true; return }
+        await fidoResetNow(alert: "Hold your key near the phone to reset FIDO2.")
+    }
+
+    private func fidoResetNow(alert: String) async {
+        await runFido(alert) { applet in
+            try await applet.reset()
+            self.passkeys = []
+            self.fingerprints = []
+            self.forgetPin()
+            self.fidoInfo = try? await applet.getInfo()
+            self.fidoRetries = nil
+            self.fidoMessage = "FIDO2 reset. All passkeys and fingerprints were erased and the PIN was cleared."
+        }
+    }
+
+    // MARK: - FIDO2 fingerprints
+
+    func fidoListFingerprints(pin: String) async {
+        fingerprints = []
+        await runFido("Hold your key near the phone to list fingerprints.") { applet in
+            let list = try await applet.bioSession(pin: pin).list()
+            self.fingerprints = list
+            self.fidoMessage = list.isEmpty ? "No fingerprints enrolled." : "\(list.count) fingerprint(s)."
+        }
+    }
+
+    func fidoRenameFingerprint(pin: String, templateId: Data, name: String) async {
+        await runFido("Hold your key near the phone to rename the fingerprint.") { applet in
+            let bio = try await applet.bioSession(pin: pin)
+            try await bio.rename(templateId: templateId, name: name)
+            self.fingerprints = try await bio.list()
+            self.fidoMessage = "Fingerprint renamed."
+        }
+    }
+
+    func fidoRemoveFingerprint(pin: String, templateId: Data) async {
+        await runFido("Hold your key near the phone to delete the fingerprint.") { applet in
+            let bio = try await applet.bioSession(pin: pin)
+            try await bio.remove(templateId: templateId)
+            self.fingerprints = try await bio.list()
+            self.fidoMessage = "Fingerprint deleted."
+        }
+    }
+
+    /// Enroll a new fingerprint. Needs a channel that holds the session across
+    /// touches (USB); progress is published through `enrollProgress`.
+    func fidoEnrollFingerprint(pin: String, name: String) async {
+        enrollCancelRequested = false
+        enrollProgress = EnrollProgress()
+        await runFido("Hold your key near the phone to enroll a fingerprint.") { applet in
+            guard applet.holdsSession else {
+                throw KeyError.unsupportedOnPlatform("Fingerprint enrollment needs the key plugged in over USB-C.")
+            }
+            let bio = try await applet.bioSession(pin: pin)
+            var s = try await bio.enrollBegin()
+            self.recordSample(s)
+            while !s.complete {
+                if self.enrollCancelRequested {
+                    await bio.cancelEnrollment()
+                    self.enrollProgress = nil
+                    self.fidoMessage = "Enrollment cancelled."
+                    return
+                }
+                if s.remaining == 0 && s.lastStatus != 0 { break }
+                s = try await bio.captureNext(templateId: s.templateId)
+                self.recordSample(s)
+            }
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { try? await bio.rename(templateId: s.templateId, name: trimmed) }
+            self.fingerprints = (try? await bio.list()) ?? self.fingerprints
+            self.fidoInfo = (try? await applet.getInfo()) ?? self.fidoInfo
+            self.enrollProgress?.finished = true
+            self.fidoMessage = "Fingerprint enrolled."
+        }
+        if fidoError != nil { enrollProgress = nil }
+    }
+
+    func fidoCancelEnrollment() { enrollCancelRequested = true }
+
+    private func recordSample(_ s: Ctap2Client.EnrollSample) {
+        var p = enrollProgress ?? EnrollProgress()
+        if s.lastStatus == 0 { p.samplesDone += 1 }
+        p.remaining = s.remaining
+        p.lastStatus = Ctap2Client.sampleStatusText(s.lastStatus)
+        enrollProgress = p
     }
 }

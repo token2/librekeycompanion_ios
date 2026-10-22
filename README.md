@@ -26,11 +26,18 @@ for third-party apps:
 | USB-C (CCID smart-card) | ✅ | 🟧 | Via TKSmartCard (external CCID reader / supported accessory); used by Token2 fingerprint unlock |
 | USB-C (CTAPHID for FIDO2) | ✅ | ❌ | No third-party CTAPHID/USB-HID access on iOS |
 
-So **most USB functionality is on hold for now**, and FIDO2 is limited to the CTAP2
-*NFC APDU* binding (no CTAPHID). One exception: Token2 **fingerprint unlock** for
-OTP works over a CCID smart-card session (`TKSmartCard`) and is therefore
-**USB-only**. Fingerprint **enrollment** — which the original notes requires USB
-even on Android — is still not available.
+So **most USB functionality is on hold for now**, and in this source tree FIDO2 is
+limited to the CTAP2 *NFC APDU* binding (no CTAPHID). Token2 **fingerprint unlock**
+for OTP works over a CCID smart-card session (`TKSmartCard`) and is therefore
+**USB-only**.
+
+The CTAP layer talks through a `CtapChannel` (`FIDO/CTAP/CtapChannel.swift`). A
+build can register a `UsbFidoProvider` that supplies a channel for keys plugged in
+over USB-C; with one registered, every FIDO2 action — including fingerprint
+**enrollment**, which needs a session held open across touches — also works over
+USB for the keys that provider supports. The App Store build of this app ships such
+a provider for Token2 keys; the open-source build registers none, so FIDO2 there
+stays on NFC.
 
 ### To run on a device
 1. A **Apple Developer account** (NFC entitlements required).
@@ -58,7 +65,7 @@ NFC ISO7816 does **not** work in the iOS Simulator — test on a physical iPhone
 | OATH (TOTP/HOTP) | ✅ Implemented | List, live codes, add (QR + paste), delete (swipe), touch-required, HOTP counter, password-protected applets (VALIDATE unlock). Core verified against RFC 4226/6238; PUT/DELETE/VALIDATE framing tested against the YKOATH spec; PBKDF2 against RFC 6070 |
 | Transport (NFC) | ✅ Implemented | APDU + GET RESPONSE chaining, extended length |
 | MDS | ✅ Implemented | 102-entry bundled starter set + in-app update that fetches the live MDS3 JWT blob from mds3.fidoalliance.org. Info tab shows entry count, source, last-updated, and an update button. Resolves AAGUID→model/certification in the FIDO2 tab. Ported from fido/MdsRepository.kt |
-| FIDO2 mgmt | ✅ Implemented (NFC) | Full management UI: getInfo, PIN retries, set/change PIN, alwaysUV toggle, list/delete passkeys. CBOR + PIN/UV v1/v2 crypto ported from `fido/ctap/`. Fingerprint enrollment omitted (needs held USB session) |
+| FIDO2 mgmt | ✅ Implemented (NFC; USB via provider) | Full management UI: getInfo, PIN retries, set/change PIN, raise minimum PIN length, alwaysUV toggle, list/delete passkeys, list/rename/delete fingerprints, FIDO2 reset. Fingerprint enrollment needs a USB channel (see Platform constraints). CBOR + PIN/UV v1/v2 crypto ported from `fido/ctap/` |
 | OpenPGP (read) | 🟧 Skeleton | Needs Application-Related-Data BER-TLV parser |
 | PIV (read) | 🟧 Skeleton | Needs DER/X.509 parser from `piv/` |
 | Token2 OTP | ✅ Implemented | Auto-detected on scan. Read + manual-entry form (issuer/account/secret/algorithm/period/digits/touch) with QR populating editable fields, plus write/delete. On firmware **R3.4+**, also set/change/remove the on-device **OTP PIN** (privacy protection) and unlock PIN-protected codes for view/add/delete. **Fingerprint unlock** (Bio keys, **USB only**) lets a fingerprint touch unlock protected codes as an alternative to the PIN — for read, add, and delete — and can be enabled/disabled from the key menu. ECDH-P256/AES crypto + codec ported from `token2/`, validated against spec §10.1/§10.2; the PIN session crypto (HMAC-SHA256 ladder, AES-CBC verify/set/change) validated against the reference vectors in `Token2PinCryptoTests`, and the fingerprint EncConfig/capture-poll (§1.14/§1.20) in `Token2FingerprintTests` |
@@ -148,7 +155,6 @@ iOS applies its own corner mask; the in-app logo keeps the rounded-square form
 and transparency.  
 
 ## TODO
-FIDO Reset
 
 ## License
 

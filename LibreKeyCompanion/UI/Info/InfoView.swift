@@ -11,6 +11,12 @@ struct InfoView: View {
     @State private var showPiv = false
     @State private var showPgp = false
 
+    /// This build can manage FIDO2 over USB-C for the keys its provider supports.
+    private var usbFidoBuild: Bool { UsbFido.provider != nil }
+    private var fidoTransportNote: String {
+        usbFidoBuild ? "FIDO2 is read over NFC, or over USB-C on supported keys." : "FIDO2 is read over NFC only."
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -37,7 +43,7 @@ struct InfoView: View {
                     }
                     .disabled(session.infoBusy)
                 } footer: {
-                    Text("Reads the key and lists what it supports. Over NFC, hold the key to the top of the phone. Over USB-C, the key stays plugged in. FIDO2 is read over NFC only.")
+                    Text("Reads the key and lists what it supports. Over NFC, hold the key to the top of the phone. Over USB-C, the key stays plugged in. " + fidoTransportNote)
                 }
 
                 if let err = session.infoError {
@@ -55,7 +61,7 @@ struct InfoView: View {
                                   present: session.oathPresent, locked: session.oathLocked)
                             .contentShape(Rectangle())
                             .onTapGesture { goToTab(1) }
-                        if session.transportMode == .usb {
+                        if session.transportMode == .usb && !session.fidoOverUSB {
                             HStack {
                                 Label("FIDO2 management", systemImage: "lock.shield.fill")
                                 Spacer()
@@ -91,7 +97,8 @@ struct InfoView: View {
                         .foregroundStyle(.secondary)
                     Label("USB-C — OATH, Token2 OTP, PIV, OpenPGP", systemImage: "cable.connector")
                         .foregroundStyle(.secondary)
-                    Label("FIDO2 management — NFC only", systemImage: "lock.shield")
+                    Label(usbFidoBuild ? "FIDO2 management — NFC, or USB-C on supported keys" : "FIDO2 management — NFC only",
+                          systemImage: "lock.shield")
                         .foregroundStyle(.secondary)
                 }
 
@@ -131,7 +138,9 @@ struct InfoView: View {
                 }
 
                 Section {
-                    Text("FIDO2 uses the key's CTAPHID interface, which iOS only exposes over NFC. All other applets work over NFC or USB-C.")
+                    Text(usbFidoBuild
+                         ? "Over USB-C, iOS doesn't expose the FIDO2 interface keys normally use; supported keys are managed through their smart-card interface instead. All other applets work over NFC or USB-C."
+                         : "FIDO2 uses the key's CTAPHID interface, which iOS only exposes over NFC. All other applets work over NFC or USB-C.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }

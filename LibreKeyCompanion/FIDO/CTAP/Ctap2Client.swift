@@ -18,23 +18,30 @@ struct CtapError: Error {
         case 0x2D: return "NOT_ALLOWED"
         case 0x2E: return "INVALID_OPTION"
         case 0x19: return "OPERATION_DENIED"
+        case 0x27: return "OPERATION_DENIED"
+        case 0x30: return "NOT_ALLOWED"
+        case 0x3C: return "UV_BLOCKED"
+        case 0x3E: return "FP_DATABASE_FULL"
+        case 0x2F: return "USER_ACTION_TIMEOUT"
         default: return "CTAP error"
         }
     }
     var localizedDescription: String { String(format: "CTAP error 0x%02X: %@", code, name) }
 }
 
-/// CTAP2 over the NFC smart-card transport (ApduWire only — iOS has no CTAPHID).
+/// CTAP2 management client over a `CtapChannel` (iOS has no CTAPHID).
 ///
 /// Ported from the Android `fido/ctap/Ctap2Client.kt`, MANAGEMENT subset:
-/// feature detection (getInfo), PIN retries, PIN set/change, alwaysUv, and
-/// discoverable-credential (passkey) listing/deletion. It does NOT do
-/// makeCredential / getAssertion. Fingerprint enrollment is omitted on iOS (it
-/// needs a held multi-touch USB session).
+/// feature detection (getInfo), PIN retries, PIN set/change, minimum PIN length,
+/// alwaysUv, reset, discoverable-credential (passkey) listing/deletion and
+/// fingerprint (bio) enrollment management. It does NOT do makeCredential /
+/// getAssertion. Fingerprint *capture* needs a channel that holds the session
+/// open across touches (`CtapChannel.holdsSession`).
 final class Ctap2Client {
-    private let transport: KeyTransport
+    let channel: CtapChannel
 
-    init(transport: KeyTransport) { self.transport = transport }
+    init(channel: CtapChannel) { self.channel = channel }
+    convenience init(transport: KeyTransport) { self.init(channel: StandardCtapChannel(transport: transport)) }
 
     // CTAP2 command bytes.
     private enum CMD {
@@ -43,6 +50,9 @@ final class Ctap2Client {
         static let credMgmt = 0x0A
         static let credMgmtPreview = 0x41
         static let config = 0x0D
+        static let reset = 0x07
+        static let bioEnroll = 0x09
+        static let bioEnrollPreview = 0x40
     }
     private enum SUB {           // clientPIN subcommands
         static let getRetries = 0x01
@@ -62,26 +72,26 @@ final class Ctap2Client {
     }
     private enum PERM {
         static let credMgmt = 0x04
+        static let bioEnroll = 0x08
         static let authCfg = 0x20
     }
-    static let FIDO_AID = Data([0xA0,0x00,0x00,0x06,0x47,0x2F,0x00,0x01])
 
     func selectFido() async throws {
-        try await transport.selectApplet(aid: Ctap2Client.FIDO_AID)
+        try await channel.select()
     }
 
-    // ---- the ApduWire send: 80 10 00 00, body = cmd byte + CBOR ----
     private func wireSend(command: Int, data: Data) async throws -> Data {
-        var payload = Data([UInt8(command)]); payload.append(data)
-        let r = try await transport.transmit(APDU(cla: 0x80, ins: 0x10, p1: 0x00, p2: 0x00, data: payload, le: 256))
-        guard r.isSuccess else { throw CtapError(code: 0xFF) }
-        return r.data
+        try await channel.send(command: command, data: data)
     }
 
     /// Send a CTAP2 command, returning the decoded CBOR map (or empty on no body).
     @discardableResult
     private func sendCbor(_ command: Int, _ cborParams: Data?) async throws -> [Cbor.MapKey: Cbor.Value] {
         let body = try await wireSend(command: command, data: cborParams ?? Data())
+        return try parseBody(body)
+    }
+
+    private func parseBody(_ body: Data) throws -> [Cbor.MapKey: Cbor.Value] {
         guard !body.isEmpty else { throw CtapError(code: 0xFF) }
         let status = Int(body[body.startIndex])
         if status != 0x00 { throw CtapError(code: status) }
@@ -106,6 +116,12 @@ final class Ctap2Client {
         var supportsCredMgmt: Bool { options["credMgmt"] == true || options["credentialMgmtPreview"] == true }
         var supportsConfig: Bool { options["authnrCfg"] == true }
         var supportsPinUvAuthToken: Bool { options["pinUvAuthToken"] == true }
+        var supportsSetMinPinLength: Bool { options["setMinPINLength"] == true }
+        /// Key has a fingerprint sensor. `bioEnroll` is false (not absent) when no
+        /// finger is enrolled yet, so presence of the key is what matters.
+        var supportsBioEnroll: Bool { options["bioEnroll"] != nil || options["userVerificationMgmtPreview"] != nil }
+        var bioUsesPreview: Bool { options["bioEnroll"] == nil && options["userVerificationMgmtPreview"] != nil }
+        var hasEnrolledFingerprint: Bool { options["bioEnroll"] == true || options["userVerificationMgmtPreview"] == true }
     }
 
     func getInfo() async throws -> Info {
@@ -368,6 +384,214 @@ final class Ctap2Client {
         out.append(Passkey(rpId: "", userName: userName, userDisplayName: userDisplay,
                            credentialId: id, userHandleHex: userHandle,
                            algorithm: algorithm, credProtect: credProtect))
+    }
+
+    // ---- minimum PIN length (authenticatorConfig setMinPINLength) ----
+
+    private enum CFGSUB { static let setMinPinLength = 0x03 }
+
+    /// Raise the minimum PIN length. With `alphanumeric` the length applies to
+    /// PINs containing letters or symbols (vendor extension, needs a channel with
+    /// `supportsAlphanumericMinPin`; PIN/UV auth protocol 1 is used for it).
+    /// CTAP only allows the minimum to grow; lowering it needs a reset.
+    func setMinPinLength(pin: String, length: Int, alphanumeric: Bool) async throws {
+        guard (4...63).contains(length) else { throw KeyError.parsing("Minimum PIN length must be 4–63") }
+        let info = try await getInfo()
+        guard info.supportsConfig else { throw KeyError.parsing("Authenticator doesn't support authenticatorConfig") }
+        if alphanumeric {
+            guard channel.supportsAlphanumericMinPin else {
+                throw KeyError.unsupportedOnPlatform("This key doesn't support a separate alphanumeric PIN minimum here.")
+            }
+        } else {
+            guard info.supportsSetMinPinLength else { throw KeyError.parsing("Authenticator doesn't support setMinPINLength") }
+        }
+        let proto: PinUvAuthProtocolBase = alphanumeric ? PinUvAuthV1() : protocolFor(info)
+        let (token, _) = try await getPinToken(pin, proto: proto, permissions: PERM.authCfg,
+                                               supportsPermissions: info.supportsPinUvAuthToken)
+        let subParams: [Cbor.MapKey: Cbor.Value] = [.int(1): .uint(UInt64(length))]
+        let subCbor = Cbor.encode(.map(subParams))
+        var msg = Data(repeating: 0xFF, count: 32)
+        msg.append(UInt8(CMD.config)); msg.append(UInt8(CFGSUB.setMinPinLength)); msg.append(subCbor)
+        let params: [Cbor.MapKey: Cbor.Value] = [
+            .int(1): .uint(UInt64(CFGSUB.setMinPinLength)),
+            .int(2): .map(subParams),
+            .int(3): .uint(UInt64(proto.version)),
+            .int(4): .bytes(authWithToken(proto, token: token, msg: msg)),
+        ]
+        let body = Cbor.encode(.map(params))
+        if alphanumeric {
+            var payload = Data([UInt8(CMD.config)]); payload.append(body)
+            _ = try parseBody(try await channel.sendAlphanumericMinPinConfig(data: payload))
+        } else {
+            try await sendCbor(CMD.config, body)
+        }
+    }
+
+    // ---- reset ----
+
+    /// authenticatorReset: erases all passkeys and fingerprints and clears the
+    /// PIN. Keys only accept it shortly after power-up (≈10 s) and usually want a
+    /// touch; otherwise they answer NOT_ALLOWED (0x30).
+    func reset() async throws {
+        try await selectFido()
+        try await sendCbor(CMD.reset, nil)
+    }
+
+    // ---- fingerprints (authenticatorBioEnrollment, modality 1) ----
+
+    struct FingerprintSensorInfo {
+        let fingerprintKind: Int?          // 1 touch, 2 swipe
+        let maxSamplesForEnroll: Int?
+        let maxFriendlyNameBytes: Int?
+    }
+
+    struct Fingerprint: Identifiable, Equatable {
+        let templateId: Data
+        let name: String?
+        var id: Data { templateId }
+    }
+
+    struct EnrollSample {
+        let templateId: Data
+        let lastStatus: Int
+        let remaining: Int
+        var complete: Bool { remaining == 0 && lastStatus == 0 }
+    }
+
+    private enum BIO {
+        static let modalityFp = 0x01
+        static let enrollBegin = 0x01
+        static let captureNext = 0x02
+        static let cancel = 0x03
+        static let enumerate = 0x04
+        static let setName = 0x05
+        static let remove = 0x06
+        static let sensorInfo = 0x07
+    }
+
+    private func bioCmd(_ info: Info) -> Int { info.bioUsesPreview ? CMD.bioEnrollPreview : CMD.bioEnroll }
+
+    private func bioAuth(_ proto: PinUvAuthProtocolBase, token: Data, sub: Int, subCbor: Data?) -> Data {
+        authWithToken(proto, token: token, msg: Data([UInt8(BIO.modalityFp), UInt8(sub)]) + (subCbor ?? Data()))
+    }
+
+    private func bioInfo() async throws -> Info {
+        let info = try await getInfo()
+        guard info.supportsBioEnroll else { throw KeyError.parsing("This key has no fingerprint sensor") }
+        return info
+    }
+
+    func fingerprintSensorInfo() async throws -> FingerprintSensorInfo {
+        let info = try await bioInfo()
+        let params: [Cbor.MapKey: Cbor.Value] = [.int(1): .uint(UInt64(BIO.modalityFp)), .int(2): .uint(UInt64(BIO.sensorInfo))]
+        let r = try await sendCbor(bioCmd(info), Cbor.encode(.map(params)))
+        func int(_ k: Int) -> Int? { if case .uint(let u)? = r[.int(k)] { return Int(u) }; return nil }
+        return FingerprintSensorInfo(fingerprintKind: int(2), maxSamplesForEnroll: int(3), maxFriendlyNameBytes: int(8))
+    }
+
+    /// An authorised bio session: one PIN token reused for every call in it, so a
+    /// whole enrollment (begin, captures, name) needs the PIN only once.
+    final class BioSession {
+        fileprivate let client: Ctap2Client
+        fileprivate let info: Info
+        fileprivate let proto: PinUvAuthProtocolBase
+        fileprivate let token: Data
+        fileprivate init(client: Ctap2Client, info: Info, proto: PinUvAuthProtocolBase, token: Data) {
+            self.client = client; self.info = info; self.proto = proto; self.token = token
+        }
+
+        func list() async throws -> [Fingerprint] { try await client.bioList(self) }
+        func rename(templateId: Data, name: String) async throws { try await client.bioRename(self, templateId: templateId, name: name) }
+        func remove(templateId: Data) async throws { try await client.bioRemove(self, templateId: templateId) }
+        func enrollBegin(timeoutMs: Int = 10_000) async throws -> EnrollSample { try await client.bioEnrollBegin(self, timeoutMs: timeoutMs) }
+        func captureNext(templateId: Data, timeoutMs: Int = 10_000) async throws -> EnrollSample {
+            try await client.bioCaptureNext(self, templateId: templateId, timeoutMs: timeoutMs)
+        }
+        func cancelEnrollment() async { await client.bioCancel(self) }
+    }
+
+    func bioSession(pin: String) async throws -> BioSession {
+        let info = try await bioInfo()
+        let proto = protocolFor(info)
+        let (token, _) = try await getPinToken(pin, proto: proto, permissions: PERM.bioEnroll,
+                                               supportsPermissions: info.supportsPinUvAuthToken)
+        return BioSession(client: self, info: info, proto: proto, token: token)
+    }
+
+    private func bioSend(_ s: BioSession, sub: Int, subParams: [Cbor.MapKey: Cbor.Value]?) async throws -> [Cbor.MapKey: Cbor.Value] {
+        let subCbor = subParams.map { Cbor.encode(.map($0)) }
+        var params: [Cbor.MapKey: Cbor.Value] = [
+            .int(1): .uint(UInt64(BIO.modalityFp)),
+            .int(2): .uint(UInt64(sub)),
+            .int(4): .uint(UInt64(s.proto.version)),
+            .int(5): .bytes(bioAuth(s.proto, token: s.token, sub: sub, subCbor: subCbor)),
+        ]
+        if let subParams { params[.int(3)] = .map(subParams) }
+        return try await sendCbor(bioCmd(s.info), Cbor.encode(.map(params)))
+    }
+
+    fileprivate func bioList(_ s: BioSession) async throws -> [Fingerprint] {
+        let r: [Cbor.MapKey: Cbor.Value]
+        do { r = try await bioSend(s, sub: BIO.enumerate, subParams: nil) }
+        catch let e as CtapError { if e.code == 0x2E || e.code == 0x3B { return [] }; throw e }
+        guard case .array(let list)? = r[.int(7)] else { return [] }
+        return list.compactMap { v in
+            guard case .map(let m) = v, case .bytes(let id)? = m[.int(1)] else { return nil }
+            var name: String?
+            if case .text(let n)? = m[.int(2)] { name = n }
+            return Fingerprint(templateId: id, name: name)
+        }
+    }
+
+    fileprivate func bioRename(_ s: BioSession, templateId: Data, name: String) async throws {
+        _ = try await bioSend(s, sub: BIO.setName, subParams: [.int(1): .bytes(templateId), .int(2): .text(name)])
+    }
+
+    fileprivate func bioRemove(_ s: BioSession, templateId: Data) async throws {
+        _ = try await bioSend(s, sub: BIO.remove, subParams: [.int(1): .bytes(templateId)])
+    }
+
+    private func sample(_ r: [Cbor.MapKey: Cbor.Value], templateId: Data) -> EnrollSample {
+        func int(_ k: Int) -> Int { if case .uint(let u)? = r[.int(k)] { return Int(u) }; return 0 }
+        return EnrollSample(templateId: templateId, lastStatus: int(5), remaining: int(6))
+    }
+
+    fileprivate func bioEnrollBegin(_ s: BioSession, timeoutMs: Int) async throws -> EnrollSample {
+        let r = try await bioSend(s, sub: BIO.enrollBegin, subParams: [.int(3): .uint(UInt64(timeoutMs))])
+        guard case .bytes(let templateId)? = r[.int(4)] else { throw CtapError(code: 0xFF) }
+        return sample(r, templateId: templateId)
+    }
+
+    fileprivate func bioCaptureNext(_ s: BioSession, templateId: Data, timeoutMs: Int) async throws -> EnrollSample {
+        let r = try await bioSend(s, sub: BIO.captureNext,
+                                  subParams: [.int(1): .bytes(templateId), .int(3): .uint(UInt64(timeoutMs))])
+        return sample(r, templateId: templateId)
+    }
+
+    fileprivate func bioCancel(_ s: BioSession) async {
+        let params: [Cbor.MapKey: Cbor.Value] = [.int(1): .uint(UInt64(BIO.modalityFp)), .int(2): .uint(UInt64(BIO.cancel))]
+        _ = try? await sendCbor(bioCmd(s.info), Cbor.encode(.map(params)))
+    }
+
+    /// Plain-language text for lastEnrollSampleStatus (CTAP 2.1 §6.7.2).
+    static func sampleStatusText(_ code: Int) -> String {
+        switch code {
+        case 0x00: return "Good sample"
+        case 0x01: return "Too high — centre your finger"
+        case 0x02: return "Too low — centre your finger"
+        case 0x03: return "Too far left — centre your finger"
+        case 0x04: return "Too far right — centre your finger"
+        case 0x05: return "Too fast — hold still"
+        case 0x06: return "Too slow"
+        case 0x07: return "Poor quality — clean your finger and the sensor"
+        case 0x08: return "Too skewed — straighten your finger"
+        case 0x09: return "Too short — cover more of the sensor"
+        case 0x0A: return "Merge failure — try again"
+        case 0x0B: return "This fingerprint is already enrolled"
+        case 0x0D: return "No touch detected"
+        case 0x0E: return "Lift your finger and touch again"
+        default: return "Touch the sensor again"
+        }
     }
 
     // ---- helpers ----

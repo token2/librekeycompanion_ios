@@ -7,8 +7,9 @@ import CryptoTokenKit
 ///
 /// iOS 16.1+ exposes USB-CCID-class smart cards through CryptoTokenKit, letting a
 /// third-party app send arbitrary APDUs — exactly what the CCID-interface applets
-/// need (OATH, Token2 OTP, PIV, OpenPGP). FIDO2 management is NOT available here:
-/// it rides the key's CTAPHID interface, which iOS doesn't expose. Use NFC for FIDO2.
+/// need (OATH, Token2 OTP, PIV, OpenPGP). The standard FIDO2 binding is not
+/// reachable here (the FIDO applet sits on the key's CTAPHID interface, which iOS
+/// doesn't expose); FIDO2 over USB needs a `UsbFidoProvider`, otherwise use NFC.
 ///
 /// The Android app used the raw USB Host API (`USB_DEVICE_ATTACHED` + bulk
 /// transfer); on iOS the OS owns the CCID driver and we talk through `TKSmartCard`,
@@ -20,6 +21,9 @@ public final class CCIDTransport: NSObject, ManagedTransport {
     private var card: TKSmartCard?
     #endif
     public private(set) var isConnected = false
+    /// CryptoTokenKit slot (reader) name of the connected key, e.g.
+    /// "TOKEN2 FIDO2 Security Key(0024)".
+    public private(set) var slotName: String?
 
     /// Whether CryptoTokenKit smart-card support exists on this device at all.
     public static var isAvailable: Bool {
@@ -56,6 +60,7 @@ public final class CCIDTransport: NSObject, ManagedTransport {
                 if ok {
                     self.slot = slot
                     self.card = card
+                    self.slotName = name
                     self.isConnected = true
                     return
                 }
@@ -73,6 +78,7 @@ public final class CCIDTransport: NSObject, ManagedTransport {
         #endif
         card = nil
         slot = nil
+        slotName = nil
         isConnected = false
     }
 
