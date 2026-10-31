@@ -45,8 +45,14 @@ final class KeySession: ObservableObject {
     private var keyFingerprintSensorCache = false
     /// Remembered OTP PIN — in memory only, never persisted. Cleared on forget/lock.
     @Published private(set) var rememberedOtpPin: String?
+    /// The PIN of the currently-unlocked session, held in memory whether or not
+    /// the user chose "remember". Lets per-tap operations (reveal a touch code)
+    /// re-open the verify window on their fresh session without re-prompting.
+    /// Distinct from rememberedOtpPin, which governs persistence across unlocks.
+    private var sessionOtpPin: String?
     func forgetOtpPin() {
         rememberedOtpPin = nil
+        sessionOtpPin = nil
         otpUnlocked = false
         otpFingerprintUnlockAvailable = false
         otpFingerprintManageable = false
@@ -507,17 +513,20 @@ final class KeySession: ObservableObject {
                 self.credentials = self.liveCodes(from: entries, now: now)
                 self.statusMessage = "Read \(self.credentials.count) Token2 entry(ies)."
             }
-            // Keep the PIN only if the user asked to remember it (in memory only).
+            // Keep the PIN only if the user asked to remember it (persisted across
+            // unlocks). But always hold it for the duration of this unlocked
+            // session so per-tap reveals can re-verify without re-prompting.
             rememberedOtpPin = remember ? pin : nil
+            sessionOtpPin = pin
         } catch KeyError.otpPinNotVerified {
-            rememberedOtpPin = nil; otpUnlocked = false
+            rememberedOtpPin = nil; sessionOtpPin = nil; otpUnlocked = false
             let left = (try? await otpReadRetries()) ?? nil
             errorMessage = left.map { "Wrong OTP PIN — \($0) of 100 attempts left." } ?? "Wrong OTP PIN."
             otpFingerprintUnlockAvailable = (transportMode == .usb) && keyFingerprintCapableCache
             otpFingerprintManageable = (transportMode == .usb) && keyFingerprintSensorCache
             otpPinPrompt = OtpPinPrompt(kind: .unlock)
         } catch {
-            rememberedOtpPin = nil
+            rememberedOtpPin = nil; sessionOtpPin = nil
             mapOtpPinError(error)
         }
         isScanning = false
@@ -642,6 +651,7 @@ final class KeySession: ObservableObject {
         // already closed once the read that opened it ended. Re-reading a
         // protected key will prompt for the PIN again.
         rememberedOtpPin = nil
+        sessionOtpPin = nil
         otpUnlocked = false
         credentials = []
         errorMessage = nil
@@ -684,6 +694,25 @@ final class KeySession: ObservableObject {
             defer { transport.invalidate(message: "Revealed."); touchPrompt = nil }
             let token2 = Token2OTPApplet(transport: transport)
             guard await token2.isPresent() else { throw KeyError.appletNotPresent("Token2") }
+            // Only PIN-protected keys need a verify before READ_ONE. We rely on the
+            // protected/unlocked state already learned when the list was read — we
+            // do NOT re-probe pinStatus here (that would both repeat the PIN prompt
+            // and misfire on non-R3.4 firmware that lacks the PIN feature).
+            if otpPinProtected {
+                // Use the session PIN (held after any unlock) or the remembered
+                // one. This works whether or not the user chose "remember".
+                if let pin = sessionOtpPin ?? rememberedOtpPin {
+                    // Re-open the verify window on this fresh session, silently.
+                    try await token2.verifyOtpPin(Data(pin.utf8))
+                } else {
+                    // Not unlocked this session and no PIN held — ask once.
+                    touchPrompt = nil
+                    statusMessage = "Unlock the codes first, then reveal."
+                    otpPinPrompt = OtpPinPrompt(kind: .unlock)
+                    isScanning = false
+                    return
+                }
+            }
             // The READ_ONE below blocks until the key's button is pressed. Over USB
             // there's no system NFC sheet, so tell the user in-app to confirm on the
             // key (it will blink until touched).
@@ -750,7 +779,7 @@ final class KeySession: ObservableObject {
                     // Priority: a remembered PIN (silent), else a fingerprint touch
                     // if the key supports it on USB, else ask the user to unlock.
                     await refreshFingerprintAvailability(token2)
-                    if let pin = rememberedOtpPin {
+                    if let pin = sessionOtpPin ?? rememberedOtpPin {
                         try await token2.verifyOtpPin(Data(pin.utf8))
                     } else if otpFingerprintUnlockAvailable {
                         // Fingerprint-only: authorize the write with a touch, in
@@ -868,7 +897,7 @@ final class KeySession: ObservableObject {
 
                 if isProtected {
                     await refreshFingerprintAvailability(token2)
-                    if let pin = rememberedOtpPin {
+                    if let pin = sessionOtpPin ?? rememberedOtpPin {
                         try await token2.verifyOtpPin(Data(pin.utf8))
                     } else if otpFingerprintUnlockAvailable {
                         statusMessage = "Touch the fingerprint sensor on the key…"
@@ -1242,7 +1271,7 @@ final class KeySession: ObservableObject {
         do {
             try await withToken2(alert: "Hold your key near the phone to change its USB channels.") { applet in
                 // A PIN-protected key may want the OTP verify window open first.
-                if let pin = rememberedOtpPin { try? await applet.verifyOtpPin(Data(pin.utf8)) }
+                if let pin = sessionOtpPin ?? rememberedOtpPin { try? await applet.verifyOtpPin(Data(pin.utf8)) }
                 sent = true
                 try await applet.setChannels(c)
             }

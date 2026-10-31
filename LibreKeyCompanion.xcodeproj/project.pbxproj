@@ -29,6 +29,7 @@
 		7217C14E44BDA03C9815669C /* PinTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11A862007CFE9BD46F93D34A /* PinTextField.swift */; };
 		75AFE7A6E653F1979123F38D /* OTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 095C82A21D59D15CFFCC4921 /* OTPView.swift */; };
 		7BC1378F859AD9CFA4590FE7 /* CCIDTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E051A96D09E6DB2F7451D351 /* CCIDTransport.swift */; };
+		7F3825377B2A7E8B16D02778 /* Token2USBFido in Frameworks */ = {isa = PBXBuildFile; productRef = B554708FD89EFA7AE1057A8A /* Token2USBFido */; };
 		82B508410A15BE32F659F417 /* Token2PinValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E9182458FD0D1114728FD5 /* Token2PinValidator.swift */; };
 		8A67EB6FAE9D1278EDDC477A /* OpenPGPApplet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69B5957795A064B901748639 /* OpenPGPApplet.swift */; };
 		8D15AE80EEDA744B13F1DF33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB0F1317A694829D3E959385 /* Assets.xcassets */; };
@@ -127,6 +128,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7F3825377B2A7E8B16D02778 /* Token2USBFido in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -374,6 +376,9 @@
 			dependencies = (
 			);
 			name = LibreKeyCompanion;
+			packageProductDependencies = (
+				B554708FD89EFA7AE1057A8A /* Token2USBFido */,
+			);
 			productName = LibreKeyCompanion;
 			productReference = 84337AD8D27FCD69AF2C4FC2 /* LibreKeyCompanion.app */;
 			productType = "com.apple.product-type.application";
@@ -405,6 +410,9 @@
 				Base,
 			);
 			mainGroup = B9340614599AB78F485950C7;
+			packageReferences = (
+				8AA2D8B9B7332374B43EAB0B /* XCLocalSwiftPackageReference "Token2USBFido" */,
+			);
 			productRefGroup = 547D009064F7C3F13BEF3460 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -535,7 +543,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = LibreKeyCompanion/Resources/LibreKeyCompanion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = BWF2GDTZ48;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LibreKeyCompanion/Resources/Info.plist;
@@ -543,7 +551,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -571,7 +579,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = LibreKeyCompanion/Resources/LibreKeyCompanion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = BWF2GDTZ48;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LibreKeyCompanion/Resources/Info.plist;
@@ -579,7 +587,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.3;
+				MARKETING_VERSION = 1.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.token2.lkcompanion;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -632,6 +640,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		8AA2D8B9B7332374B43EAB0B /* XCLocalSwiftPackageReference "Token2USBFido" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ./Token2USBFido;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B554708FD89EFA7AE1057A8A /* Token2USBFido */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 8AA2D8B9B7332374B43EAB0B /* XCLocalSwiftPackageReference "Token2USBFido" */;
+			productName = Token2USBFido;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
 }
