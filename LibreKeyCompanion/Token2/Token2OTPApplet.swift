@@ -241,10 +241,13 @@ final class Token2OTPApplet {
 
     /// Read one entry, always including the code.
     func readEntry(timestampSeconds: Int64, app: String, acct: String) async throws -> Token2Codec.Entry {
-        let resp = try await transmitChecked(
+        let raw = try await transmitChecked(
             apduExt(Cmd.enumCodes, Token2Codec.serializeReadOne(timestampSeconds: timestampSeconds, app: app, acct: acct)))
-        return try Token2Codec.parseEnumPage(resp, fullDecode: true).entries.first
-            ?? { throw KeyError.parsing("no entry returned") }()
+        // On a PIN-verified session the READ_ONE response is encrypted
+        // (IV||EncData||Auth) and must be decrypted before parsing — same as
+        // enumerate. READ_ONE has no partial-page flag, so use parseReadOne.
+        let resp = maybeDecryptPage(raw)
+        return try Token2Codec.parseReadOne(resp)
     }
 
     /// Seal a write cleartext, choosing format by PIN state (matches the reference

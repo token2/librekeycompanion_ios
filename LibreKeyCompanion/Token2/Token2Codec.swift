@@ -48,11 +48,30 @@ enum Token2Codec {
     /// entries plus whether more pages follow (issue ENUM_CODES_CONTINUE).
     static func parseEnumPage(_ data: Data, fullDecode: Bool = false) throws -> (entries: [Entry], more: Bool) {
         if data.isEmpty { return ([], false) }
-        let bytes = [UInt8](data)
-        let morePages = (bytes[0] & 0x80) != 0
-        var stream = bytes
-        stream[0] = stream[0] & 0x7F          // clear partial flag to recover the type
+        var stream = [UInt8](data)
+        let morePages = (stream[0] & 0x80) != 0
+        // READ_ALL pages carry the partial-page flag in bit 7 of byte 0; clear it
+        // to recover the type. READ_ONE has no such flag — it uses parseReadOne /
+        // parseEntryRecords directly, without this masking.
+        stream[0] = stream[0] & 0x7F
+        return (try parseEntryRecords(stream, full: fullDecode), morePages)
+    }
 
+    /// Parse a READ_ONE response. Unlike READ_ALL pages it has NO partial-page
+    /// flag in byte 0 (byte 0 is the entry type directly), so it must be parsed
+    /// without the bit-7 masking that parseEnumPage applies — mirroring the desktop
+    /// reference (fido2-manage parse_entries / token2-otp-cli unserialize).
+    /// Always full-decodes (the code tail is present).
+    static func parseReadOne(_ data: Data) throws -> Entry {
+        let entries = try parseEntryRecords([UInt8](data), full: true)
+        guard let last = entries.last else { throw ParseError(message: "empty READ_ONE response") }
+        return last
+    }
+
+    /// Parse a sequence of entry records (no page flag). Field layout:
+    ///   type(1) algo(1) timestep(2 BE) codeLen(1) button(1) appLen(1) app(appLen)
+    ///   acctLen(1) acct(acctLen) [ codeLen(1) code(codeLen) ]?
+    private static func parseEntryRecords(_ stream: [UInt8], full: Bool) throws -> [Entry] {
         var entries: [Entry] = []
         var i = 0
         while i < stream.count {
@@ -71,7 +90,7 @@ enum Token2Codec {
             let acct = String(bytes: stream[i..<i+acctLen], encoding: .ascii) ?? ""; i += acctLen
 
             var code: String? = nil
-            let hasTail = fullDecode || (type == TYPE_TOTP && btn == 0x00)
+            let hasTail = full || (type == TYPE_TOTP && btn == 0x00)
             if hasTail {
                 guard i < stream.count else { throw ParseError(message: "missing otp_code_len") }
                 let codeStrLen = Int(stream[i]); i += 1
@@ -82,7 +101,7 @@ enum Token2Codec {
                                  codeLength: codeLen, buttonRequired: btn != 0,
                                  appName: app, accountName: acct, otpCode: code))
         }
-        return (entries, morePages)
+        return entries
     }
 
     /// Build the cleartext write payload (§6.3) — encrypted before sending.
